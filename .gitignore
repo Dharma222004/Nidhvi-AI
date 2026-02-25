@@ -3,6 +3,9 @@ server/.env
 .env
 .env.local
 .env.*
+!.env.example
+!server/.env.example
+
 
 # Documentation artifacts (agent-generated logs)
 *_COMPLETE.md
