@@ -158,25 +158,29 @@ function buildHospitalSearchQuery({ condition, specialistType, location, filterT
         filterType === 'private' ? 'private' :
             'government and private';
 
-    return `Search for and list the top 10 REAL and VERIFIED ${hospitalType} hospitals and ${specialistType} doctors for treating ${condition} in ${location}, India.
-    
-IMPORTANT: Provide ACTUAL, EXISTING hospitals with real contact details. Do not generate placeholder or generic data.
+    return `I need a list of the TOP 10 real, verified, and highly-rated ${hospitalType} hospitals and specialized ${specialistType} doctors in ${location}, India, specifically for treating ${condition}.
 
-For EACH hospital, provide the details in this EXACT format:
+CRITICAL INSTRUCTIONS:
+1. Only include medical facilities that ACTUALLY EXIST in ${location}.
+2. Provide the EXACT, full address including the pin code if possible.
+3. Provide the CURRENT, WORKING phone numbers (mobile or landline).
+4. List at least 2-3 specific doctors (specialists) for each facility.
+5. Provide real Google/Practo ratings if you can find them.
+6. Mention if the hospital has a dedicated ${specialistType} department.
 
-HOSPITAL: [Exact Name of the Hospital/Clinic]
-TYPE: [Government or Private]
-ADDRESS: [Complete Address including Area, Landmark, City, and Pin Code]
-PHONE: [Real Phone Number with STD Code or Mobile]
-DOCTORS: [Names of Top Specialists available at this hospital]
-SPECIALTIES: [Key Medical Departments available]
-TIMING: [OPD Consultation Hours - be specific]
-CONSULTATION_FEE: [Approximate Consultation Fee in INR]
-RATING: [Rating out of 5 based on Google/Practo reviews]
+For EACH facility, follow this EXACT template:
 
-Ensure the phone numbers and addresses are accurate and functional.
-Prioritize highly-rated and well-known medical institutions.
-Include a mix of specialized clinics and multi-specialty hospitals.`;
+HOSPITAL: [Full Legal Name]
+TYPE: [Government/Private]
+ADDRESS: [Complete detailed address]
+PHONE: [Active phone number(s)]
+DOCTORS: [Dr. Name 1 (Specialty), Dr. Name 2 (Specialty)]
+SPECIALTIES: [Department Name 1, Department Name 2]
+TIMING: [Consultation hours, e.g., 24x7 or 9AM-5PM]
+CONSULTATION_FEE: [Estimated INR amount]
+RATING: [X.X/5 based on real reviews]
+
+Ensure the information is as current as possible. If you are unsure of a specific detail like the fee, use an estimate like "₹500 - ₹1000".`;
 }
 
 /**

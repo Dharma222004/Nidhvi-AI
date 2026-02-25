@@ -48,9 +48,12 @@ const generationConfig = {
 };
 
 /**
- * Retry helper with exponential backoff and API key rotation
+ * Retry helper with exhaustive API key rotation and exponential backoff
  */
-async function withRetry(fn, maxRetries = 3) {
+async function withRetry(fn, maxRetries = 10) { // Increased retries to cover all keys multiple times
+  let attemptsWithCurrentKey = 0;
+  const maxAttemptsPerKey = 2;
+
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       return await fn();
@@ -59,17 +62,25 @@ async function withRetry(fn, maxRetries = 3) {
       const isRateLimit = errorMsg.includes('429') || errorMsg.includes('quota') || errorMsg.includes('limit');
       const isAuthError = errorMsg.includes('401') || errorMsg.includes('invalid') || errorMsg.includes('key');
 
+      console.error(`Gemini Error (Attempt ${attempt}/${maxRetries}):`, error.message);
+
       if ((isRateLimit || isAuthError) && attempt < maxRetries) {
-        // Try rotating the key if we have more than one
-        if (rotateKey()) {
-          console.log(`Key ${isRateLimit ? 'rate limited' : 'invalid'}, switched to a new key. Retrying immediately.`);
-          // After rotation, we retry without much delay as it's a fresh key
-          continue;
+        attemptsWithCurrentKey++;
+
+        // If current key failed twice or it's an auth error, definitely rotate
+        if (attemptsWithCurrentKey >= maxAttemptsPerKey || isAuthError) {
+          if (rotateKey()) {
+            attemptsWithCurrentKey = 0;
+            console.log(`Switching to key ${currentKeyIndex + 1} due to ${isRateLimit ? 'usage limits' : 'auth error'}.`);
+            // Brief pause to let the system stabilize
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            continue;
+          }
         }
 
-        // If no more keys to rotate, use exponential backoff
-        const delay = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
-        console.log(`Rate limited and no more keys to rotate, retrying in ${delay / 1000}s (attempt ${attempt}/${maxRetries})`);
+        // If rotation not possible or we want to try the same key one more time with backoff
+        const delay = Math.pow(2, attemptsWithCurrentKey) * 2000;
+        console.log(`Retrying same key in ${delay / 1000}s...`);
         await new Promise(resolve => setTimeout(resolve, delay));
       } else {
         throw error;

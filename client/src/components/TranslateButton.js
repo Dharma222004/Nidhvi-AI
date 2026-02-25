@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
+import { useTypewriter } from '../hooks/useTypewriter';
 
 /**
  * TranslateButton Component
@@ -41,12 +42,16 @@ function TranslateButton({ analysisData }) {
         fetchLanguages();
     }, []);
 
+    const [audioChunks, setAudioChunks] = useState(null);
+    const [isPreloadingAudio, setIsPreloadingAudio] = useState(false);
+
     // Handle translation
     const handleTranslate = async (language) => {
         setSelectedLanguage(language);
         setShowLanguageMenu(false);
         setLoading(true);
         setError(null);
+        setAudioChunks(null);
 
         try {
             console.log(`Translating to ${language.name}...`);
@@ -57,11 +62,15 @@ function TranslateButton({ analysisData }) {
             });
 
             if (response.data.success) {
-                setTranslatedContent({
+                const translated = {
                     content: response.data.translatedContent,
                     languageName: response.data.targetLanguageName,
                     languageCode: response.data.targetLanguage
-                });
+                };
+                setTranslatedContent(translated);
+
+                // Automatically pre-generate TTS
+                preloadTTS(translated.content, translated.languageCode);
             } else {
                 throw new Error(response.data.error || 'Translation failed');
             }
@@ -70,6 +79,24 @@ function TranslateButton({ analysisData }) {
             setError(err.response?.data?.error || err.message || 'Failed to translate');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const preloadTTS = async (text, langCode) => {
+        setIsPreloadingAudio(true);
+        try {
+            const response = await axios.post('/api/sarvam/speak', {
+                text,
+                targetLanguage: `${langCode}-IN`
+            });
+            if (response.data.success) {
+                setAudioChunks(response.data.audios);
+                console.log('TTS Preloaded and ready.');
+            }
+        } catch (err) {
+            console.warn('Silent TTS preload failure:', err);
+        } finally {
+            setIsPreloadingAudio(false);
         }
     };
 
@@ -94,28 +121,30 @@ function TranslateButton({ analysisData }) {
         speakingRef.current = true;
 
         try {
-            console.log('Generating medical explanation audio...');
-            const response = await axios.post('/api/sarvam/speak', {
-                text: translatedContent.content,
-                targetLanguage: `${translatedContent.languageCode}-IN`
-            });
+            let chunks = audioChunks;
 
-            if (response.data.success && speakingRef.current) {
-                const audioChunks = response.data.audios; // Array of base64 strings
-
-                if (!audioChunks || audioChunks.length === 0) {
-                    throw new Error('No audio generated');
+            // If not preloaded yet, fetch now
+            if (!chunks) {
+                console.log('Audio not preloaded, fetching now...');
+                const response = await axios.post('/api/sarvam/speak', {
+                    text: translatedContent.content,
+                    targetLanguage: `${translatedContent.languageCode}-IN`
+                });
+                if (response.data.success) {
+                    chunks = response.data.audios;
                 }
+            }
 
+            if (chunks && chunks.length > 0 && speakingRef.current) {
                 const playSequentially = async (index) => {
-                    if (!speakingRef.current || index >= audioChunks.length) {
+                    if (!speakingRef.current || index >= chunks.length) {
                         setSpeaking(false);
                         speakingRef.current = false;
                         setAudio(null);
                         return;
                     }
 
-                    const audioBlob = await fetch(`data:audio/wav;base64,${audioChunks[index]}`).then(r => r.blob());
+                    const audioBlob = await fetch(`data:audio/wav;base64,${chunks[index]}`).then(r => r.blob());
                     const audioUrl = URL.createObjectURL(audioBlob);
                     const audioInstance = new Audio(audioUrl);
 
@@ -142,14 +171,16 @@ function TranslateButton({ analysisData }) {
         }
     };
 
-    // Clear translation
     const handleClearTranslation = () => {
         if (audio) audio.pause();
         setTranslatedContent(null);
         setSelectedLanguage(null);
         setSpeaking(false);
         setAudio(null);
+        setAudioChunks(null);
     };
+
+    const { displayedText, isComplete } = useTypewriter(translatedContent?.content, 20, !!translatedContent);
 
     return (
         <div className="translate-section">
@@ -263,14 +294,15 @@ function TranslateButton({ analysisData }) {
                                     whileHover={{ scale: 1.05 }}
                                     whileTap={{ scale: 0.95 }}
                                     onClick={handleSpeak}
-                                    className={`listen-btn ${speaking ? 'speaking' : ''}`}
+                                    disabled={!audioChunks && isPreloadingAudio}
+                                    className={`listen-btn ${speaking ? 'speaking' : ''} ${(!audioChunks && isPreloadingAudio) ? 'preloading' : ''}`}
                                 >
-                                    {speaking ? '🔊 Stop' : '🔈 Listen'}
+                                    {speaking ? '🔊 Stop' : (isPreloadingAudio && !audioChunks ? '⌛ Preparing Voice...' : '🔈 Listen Now')}
                                 </motion.button>
                             </div>
                         </div>
                         <div className="translated-body">
-                            {translatedContent.content.split('\n').map((line, idx) => {
+                            {displayedText.split('\n').map((line, idx) => {
                                 // Handle headings
                                 if (line.startsWith('## ')) {
                                     return (
@@ -301,6 +333,7 @@ function TranslateButton({ analysisData }) {
                                 }
                                 return null;
                             })}
+                            {!isComplete && <span className="typing-cursor">|</span>}
                         </div>
                     </motion.div>
                 )}
@@ -587,6 +620,21 @@ function TranslateButton({ analysisData }) {
                     border: none;
                     border-top: 1px solid rgba(255, 255, 255, 0.1);
                     margin: 1.5rem 0;
+                }
+
+                .typing-cursor {
+                    display: inline-block;
+                    width: 2px;
+                    height: 1.2rem;
+                    background-color: #7c3aed;
+                    margin-left: 2px;
+                    animation: blink 1s step-end infinite;
+                    vertical-align: middle;
+                }
+
+                @keyframes blink {
+                    from, to { background-color: transparent; }
+                    50% { background-color: #7c3aed; }
                 }
 
                 @media (max-width: 640px) {
