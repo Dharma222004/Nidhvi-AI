@@ -16,6 +16,29 @@ const pdfParse = require('pdf-parse');
 const geminiService = require('../services/geminiService');
 const safetyService = require('../services/safetyService');
 
+<<<<<<< HEAD
+=======
+// Configure multer for file uploads
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        // Use /tmp for Vercel/Serverless environments as root is read-only
+        const uploadDir = (process.env.VERCEL || process.env.NODE_ENV === 'production')
+            ? '/tmp'
+            : path.join(__dirname, '../uploads');
+
+        if (!fs.existsSync(uploadDir) && uploadDir !== '/tmp') {
+            fs.mkdirSync(uploadDir, { recursive: true });
+        }
+        cb(null, uploadDir);
+    },
+    filename: (req, file, cb) => {
+        const uniqueName = `${uuidv4()}-${Date.now()}${path.extname(file.originalname)}`;
+        cb(null, uniqueName);
+    }
+});
+
+
+>>>>>>> dcd52a959bdb91ce4340e0498b60e9c8a5d57696
 const fileFilter = (req, file, cb) => {
     const allowedMimes = [
         'application/pdf',

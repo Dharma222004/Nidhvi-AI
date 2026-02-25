@@ -2,6 +2,7 @@
   "name": "healthcare-report-explainer-client",
   "version": "1.0.0",
   "private": true,
+  "homepage": ".",
   "dependencies": {
     "axios": "^1.6.0",
     "framer-motion": "^10.18.0",
