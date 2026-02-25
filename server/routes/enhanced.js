@@ -16,9 +16,10 @@ const { findHospitalsAndDoctors } = require('../services/hospitalFinderService')
 const { translateReport } = require('../services/translationService');
 const { getStandardDisclaimers, detectRedFlags } = require('../services/safetyService');
 
-// Configure multer for file uploads
+// Configure multer for file uploads - Use memory storage for Vercel
+const storage = multer.memoryStorage();
 const upload = multer({
-    dest: 'uploads/',
+    storage: storage,
     limits: {
         fileSize: parseInt(process.env.MAX_FILE_SIZE_MB || '10') * 1024 * 1024
     },
@@ -39,8 +40,6 @@ const upload = multer({
  * Complete analysis workflow
  */
 router.post('/analyze', upload.single('file'), async (req, res) => {
-    let filePath = null;
-
     try {
         const { mode = 'patient', language = 'en', userLocation = null } = req.body;
 
@@ -51,16 +50,16 @@ router.post('/analyze', upload.single('file'), async (req, res) => {
             });
         }
 
-        filePath = req.file.path;
+        const fileBuffer = req.file.buffer;
         const mimeType = req.file.mimetype;
 
-        console.log(`\n=== Enhanced Analysis Started ===`);
+        console.log(`\n=== Enhanced Analysis Started (Memory Mode) ===`);
         console.log(`File: ${req.file.originalname}`);
         console.log(`Mode: ${mode}, Language: ${language}`);
 
-        // Step 1: Extract text from file
+        // Step 1: Extract text from file (Pass buffer instead of path)
         console.log('Step 1: Extracting text...');
-        const extractedData = await extractFromImage(filePath, mimeType);
+        const extractedData = await extractFromImage(fileBuffer, mimeType);
 
         // Step 2: Analyze medical content using Groq's llama-3.3-70b
         console.log('Step 2: Analyzing medical content...');
@@ -237,11 +236,6 @@ ${analysis.disclaimer}
             error: 'Analysis failed',
             message: error.message
         });
-    } finally {
-        // Cleanup uploaded file
-        if (filePath && fs.existsSync(filePath)) {
-            fs.unlinkSync(filePath);
-        }
     }
 });
 

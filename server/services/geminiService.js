@@ -153,13 +153,19 @@ function cleanAndParseJSON(text) {
 }
 
 /**
- * Convert file to Gemini-compatible format
+ * Convert file/buffer to Gemini-compatible format
  */
-function fileToGenerativePart(filePath, mimeType) {
-  const fileData = fs.readFileSync(filePath);
+function toGenerativePart(input, mimeType) {
+  let data;
+  if (Buffer.isBuffer(input)) {
+    data = input.toString('base64');
+  } else {
+    data = fs.readFileSync(input).toString('base64');
+  }
+
   return {
     inlineData: {
-      data: Buffer.from(fileData).toString('base64'),
+      data,
       mimeType
     }
   };
@@ -167,11 +173,12 @@ function fileToGenerativePart(filePath, mimeType) {
 
 /**
  * Extract content from medical report image/PDF
+ * @param {string|Buffer} input - File path or Buffer
  */
-async function extractFromImage(filePath, mimeType) {
+async function extractFromImage(input, mimeType) {
   const model = genAI.getGenerativeModel({ model: MODELS.vision, generationConfig });
 
-  const imagePart = fileToGenerativePart(filePath, mimeType);
+  const imagePart = toGenerativePart(input, mimeType);
 
   const extractionPrompt = `You are a medical report extraction specialist. Analyze this medical report image and extract all relevant information.
 
