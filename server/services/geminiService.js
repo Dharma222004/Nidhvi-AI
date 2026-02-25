@@ -37,8 +37,8 @@ function rotateKey() {
 
 // Model configurations - using gemini-2.5-flash (latest model)
 const MODELS = {
-  vision: process.env.GEMINI_MODEL || 'gemini-2.5-flash',  // Vision-capable model for images/PDFs
-  text: process.env.GEMINI_MODEL || 'gemini-2.5-flash'      // Text generation for explanations
+  vision: process.env.GEMINI_MODEL || 'gemini-1.5-flash',
+  text: process.env.GEMINI_MODEL || 'gemini-1.5-flash'
 };
 
 // Generation config for optimized responses

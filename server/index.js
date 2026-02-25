@@ -140,7 +140,10 @@ app.get('/api/docs', (req, res) => {
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error('Error:', err);
+  console.error('--- SERVER ERROR ---');
+  console.error('Message:', err.message);
+  console.error('Stack:', err.stack);
+  console.error('--------------------');
 
   // Multer file size error
   if (err.code === 'LIMIT_FILE_SIZE') {
