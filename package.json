@@ -1,0 +1,12 @@
+{
+    "name": "healthcare-report-explainer",
+    "version": "1.0.0",
+    "private": true,
+    "scripts": {
+        "start": "node server/index.js",
+        "client-install": "cd client && npm install",
+        "server-install": "cd server && npm install",
+        "install-all": "npm run client-install && npm run server-install",
+        "build": "cd client && npm run build"
+    }
+}

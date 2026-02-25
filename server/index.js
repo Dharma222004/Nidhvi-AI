@@ -157,18 +157,22 @@ app.use((req, res) => {
 });
 
 // Start server
-app.listen(PORT, () => {
-  console.log(`
-╔═══════════════════════════════════════════════════════════╗
-║     Healthcare Report Explainer API Server                ║
-╠═══════════════════════════════════════════════════════════╣
-║  Status:  Running                                         ║
-║  Port:    ${PORT}                                            ║
-║  Mode:    ${process.env.NODE_ENV || 'development'}                                   ║
-║  API:     http://localhost:${PORT}/api                       ║
-║  Docs:    http://localhost:${PORT}/api/docs                  ║
-╚═══════════════════════════════════════════════════════════╝
-  `);
-});
+if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`
+  ╔═══════════════════════════════════════════════════════════╗
+  ║     Healthcare Report Explainer API Server                ║
+  ╠═══════════════════════════════════════════════════════════╣
+  ║  Status:  Running                                         ║
+  ║  Port:    ${PORT}                                            ║
+  ║  Mode:    ${process.env.NODE_ENV || 'development'}                                   ║
+  ║  API:     http://localhost:${PORT}/api                       ║
+  ║  Docs:    http://localhost:${PORT}/api/docs                  ║
+  ╚═══════════════════════════════════════════════════════════╝
+    `);
+  });
+}
 
+// Export for Vercel serverless functions
 module.exports = app;
+
