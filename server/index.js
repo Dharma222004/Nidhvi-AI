@@ -22,6 +22,17 @@ const sarvamRoutes = require('./routes/sarvam'); // Sarvam AI Multilingual
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Essential for Vercel/Proxies
+app.set('trust proxy', 1);
+
+// Debug: Log environment state (Safe check)
+console.log('Environment Check:', {
+  hasGemini: !!process.env.GEMINI_API_KEY_1 || !!process.env.GEMINI_API_KEY,
+  hasGroq: !!process.env.GROQ_API_KEY,
+  isVercel: !!process.env.VERCEL,
+  nodeEnv: process.env.NODE_ENV
+});
+
 // Security middleware
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
