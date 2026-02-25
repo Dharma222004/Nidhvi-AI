@@ -19,8 +19,12 @@ const safetyService = require('../services/safetyService');
 // Configure multer for file uploads
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        const uploadDir = path.join(__dirname, '../uploads');
-        if (!fs.existsSync(uploadDir)) {
+        // Use /tmp for Vercel/Serverless environments as root is read-only
+        const uploadDir = (process.env.VERCEL || process.env.NODE_ENV === 'production')
+            ? '/tmp'
+            : path.join(__dirname, '../uploads');
+
+        if (!fs.existsSync(uploadDir) && uploadDir !== '/tmp') {
             fs.mkdirSync(uploadDir, { recursive: true });
         }
         cb(null, uploadDir);
@@ -30,6 +34,7 @@ const storage = multer.diskStorage({
         cb(null, uniqueName);
     }
 });
+
 
 const fileFilter = (req, file, cb) => {
     const allowedMimes = [

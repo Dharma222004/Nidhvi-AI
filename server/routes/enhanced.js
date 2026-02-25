@@ -18,7 +18,7 @@ const { getStandardDisclaimers, detectRedFlags } = require('../services/safetySe
 
 // Configure multer for file uploads
 const upload = multer({
-    dest: 'uploads/',
+    dest: (process.env.VERCEL || process.env.NODE_ENV === 'production') ? '/tmp' : 'uploads/',
     limits: {
         fileSize: parseInt(process.env.MAX_FILE_SIZE_MB || '10') * 1024 * 1024
     },
