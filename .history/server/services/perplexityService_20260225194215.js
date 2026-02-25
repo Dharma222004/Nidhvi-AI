@@ -71,7 +71,7 @@ OUTPUT FORMAT (JSON only, no markdown):
 Respond ONLY with valid JSON, no explanation or markdown.`;
 
   try {
-    const response = await getPerplexityClient().chat.completions.create({
+    const response = await perplexity.chat.completions.create({
       model: MODEL,
       messages: [
         {
@@ -162,7 +162,7 @@ Remember: Patients may be anxious. Be kind, clear, and helpful.
 Respond ONLY with valid JSON, no explanation or markdown.`;
 
   try {
-    const response = await getPerplexityClient().chat.completions.create({
+    const response = await perplexity.chat.completions.create({
       model: MODEL,
       messages: [
         {
@@ -258,7 +258,7 @@ OUTPUT FORMAT (JSON only, no markdown):
 Respond ONLY with valid JSON, no explanation or markdown.`;
 
   try {
-    const response = await getPerplexityClient().chat.completions.create({
+    const response = await perplexity.chat.completions.create({
       model: MODEL,
       messages: [
         {
@@ -329,7 +329,7 @@ OUTPUT FORMAT (JSON only, no markdown):
 Respond ONLY with valid JSON, no explanation or markdown.`;
 
   try {
-    const response = await getPerplexityClient().chat.completions.create({
+    const response = await perplexity.chat.completions.create({
       model: MODEL,
       messages: [
         {
@@ -381,7 +381,7 @@ async function searchWithPerplexity(params) {
       console.log(`Perplexity search attempt ${attempt}/${maxRetries}`);
       console.log(`Query: ${query.substring(0, 100)}...`);
 
-      const response = await getPerplexityClient().chat.completions.create({
+      const response = await perplexity.chat.completions.create({
         model: "sonar", // Perplexity's search-enabled model
         messages: [
           {
@@ -459,7 +459,7 @@ async function validateApiKey() {
   }
 
   try {
-    await getPerplexityClient().chat.completions.create({
+    await perplexity.chat.completions.create({
       model: MODEL,
       messages: [{ role: "user", content: "Test" }],
       max_tokens: 10,

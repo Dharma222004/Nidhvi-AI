@@ -3,28 +3,17 @@
  * Handles all interactions with Perplexity API for medical report analysis
  */
 
-const OpenAI = require("openai");
-const fs = require("fs");
+const OpenAI = require('openai');
+const fs = require('fs');
 
-// Initialize Perplexity client lazily to prevent startup crashes if API key is missing
-let perplexityInstance = null;
-function getPerplexityClient() {
-  if (!perplexityInstance) {
-    if (!process.env.PERPLEXITY_API_KEY) {
-      throw new Error(
-        "PERPLEXITY_API_KEY is missing. Please configure it in your environment variables.",
-      );
-    }
-    perplexityInstance = new OpenAI({
-      apiKey: process.env.PERPLEXITY_API_KEY,
-      baseURL: "https://api.perplexity.ai",
-    });
-  }
-  return perplexityInstance;
-}
+// Initialize Perplexity client (OpenAI-compatible API)
+const perplexity = new OpenAI({
+  apiKey: process.env.PERPLEXITY_API_KEY,
+  baseURL: 'https://api.perplexity.ai'
+});
 
 // Model to use
-const MODEL = "sonar"; // Perplexity's main model
+const MODEL = 'sonar';  // Perplexity's main model
 
 /**
  * Extract content from text-based report
@@ -71,17 +60,13 @@ OUTPUT FORMAT (JSON only, no markdown):
 Respond ONLY with valid JSON, no explanation or markdown.`;
 
   try {
-    const response = await getPerplexityClient().chat.completions.create({
+    const response = await perplexity.chat.completions.create({
       model: MODEL,
       messages: [
-        {
-          role: "system",
-          content:
-            "You are a medical report extraction specialist. Always respond with valid JSON only.",
-        },
-        { role: "user", content: extractionPrompt },
+        { role: 'system', content: 'You are a medical report extraction specialist. Always respond with valid JSON only.' },
+        { role: 'user', content: extractionPrompt }
       ],
-      max_tokens: 2000,
+      max_tokens: 2000
     });
 
     const text = response.choices[0].message.content;
@@ -91,9 +76,9 @@ Respond ONLY with valid JSON, no explanation or markdown.`;
     if (jsonMatch) {
       return JSON.parse(jsonMatch[0]);
     }
-    throw new Error("No valid JSON in response");
+    throw new Error('No valid JSON in response');
   } catch (error) {
-    console.error("Extraction error:", error);
+    console.error('Extraction error:', error);
     throw new Error(`Failed to extract report data: ${error.message}`);
   }
 }
@@ -103,9 +88,7 @@ Respond ONLY with valid JSON, no explanation or markdown.`;
  */
 async function extractFromImage(filePath, mimeType) {
   // Perplexity doesn't have vision capability, so we'll throw an error
-  throw new Error(
-    "Image analysis requires Gemini API. Please upload a text-based PDF or use text input.",
-  );
+  throw new Error('Image analysis requires Gemini API. Please upload a text-based PDF or use text input.');
 }
 
 /**
@@ -162,17 +145,13 @@ Remember: Patients may be anxious. Be kind, clear, and helpful.
 Respond ONLY with valid JSON, no explanation or markdown.`;
 
   try {
-    const response = await getPerplexityClient().chat.completions.create({
+    const response = await perplexity.chat.completions.create({
       model: MODEL,
       messages: [
-        {
-          role: "system",
-          content:
-            "You are a compassionate healthcare communication specialist. Always respond with valid JSON only.",
-        },
-        { role: "user", content: prompt },
+        { role: 'system', content: 'You are a compassionate healthcare communication specialist. Always respond with valid JSON only.' },
+        { role: 'user', content: prompt }
       ],
-      max_tokens: 2000,
+      max_tokens: 2000
     });
 
     const text = response.choices[0].message.content;
@@ -181,9 +160,9 @@ Respond ONLY with valid JSON, no explanation or markdown.`;
     if (jsonMatch) {
       return JSON.parse(jsonMatch[0]);
     }
-    throw new Error("No valid JSON in response");
+    throw new Error('No valid JSON in response');
   } catch (error) {
-    console.error("Patient explanation error:", error);
+    console.error('Patient explanation error:', error);
     throw new Error(`Failed to generate patient explanation: ${error.message}`);
   }
 }
@@ -258,17 +237,13 @@ OUTPUT FORMAT (JSON only, no markdown):
 Respond ONLY with valid JSON, no explanation or markdown.`;
 
   try {
-    const response = await getPerplexityClient().chat.completions.create({
+    const response = await perplexity.chat.completions.create({
       model: MODEL,
       messages: [
-        {
-          role: "system",
-          content:
-            "You are a clinical decision support specialist. Always respond with valid JSON only.",
-        },
-        { role: "user", content: prompt },
+        { role: 'system', content: 'You are a clinical decision support specialist. Always respond with valid JSON only.' },
+        { role: 'user', content: prompt }
       ],
-      max_tokens: 2000,
+      max_tokens: 2000
     });
 
     const text = response.choices[0].message.content;
@@ -277,12 +252,10 @@ Respond ONLY with valid JSON, no explanation or markdown.`;
     if (jsonMatch) {
       return JSON.parse(jsonMatch[0]);
     }
-    throw new Error("No valid JSON in response");
+    throw new Error('No valid JSON in response');
   } catch (error) {
-    console.error("Clinician explanation error:", error);
-    throw new Error(
-      `Failed to generate clinician explanation: ${error.message}`,
-    );
+    console.error('Clinician explanation error:', error);
+    throw new Error(`Failed to generate clinician explanation: ${error.message}`);
   }
 }
 
@@ -329,17 +302,13 @@ OUTPUT FORMAT (JSON only, no markdown):
 Respond ONLY with valid JSON, no explanation or markdown.`;
 
   try {
-    const response = await getPerplexityClient().chat.completions.create({
+    const response = await perplexity.chat.completions.create({
       model: MODEL,
       messages: [
-        {
-          role: "system",
-          content:
-            "You generate medical citations. Always respond with valid JSON only.",
-        },
-        { role: "user", content: prompt },
+        { role: 'system', content: 'You generate medical citations. Always respond with valid JSON only.' },
+        { role: 'user', content: prompt }
       ],
-      max_tokens: 1500,
+      max_tokens: 1500
     });
 
     const text = response.choices[0].message.content;
@@ -350,7 +319,7 @@ Respond ONLY with valid JSON, no explanation or markdown.`;
     }
     return { citations: [], terminologyCodes: [] };
   } catch (error) {
-    console.error("Citation generation error:", error);
+    console.error('Citation generation error:', error);
     return { citations: [], terminologyCodes: [] };
   }
 }
@@ -364,14 +333,12 @@ async function searchWithPerplexity(params) {
     query,
     returnCitations = true,
     returnImages = false,
-    maxRetries = 2,
+    maxRetries = 2
   } = params;
 
   // Validate API key first
   if (!process.env.PERPLEXITY_API_KEY) {
-    throw new Error(
-      "Perplexity API key not configured. Please add PERPLEXITY_API_KEY to your .env file.",
-    );
+    throw new Error('Perplexity API key not configured. Please add PERPLEXITY_API_KEY to your .env file.');
   }
 
   let lastError = null;
@@ -381,11 +348,11 @@ async function searchWithPerplexity(params) {
       console.log(`Perplexity search attempt ${attempt}/${maxRetries}`);
       console.log(`Query: ${query.substring(0, 100)}...`);
 
-      const response = await getPerplexityClient().chat.completions.create({
-        model: "sonar", // Perplexity's search-enabled model
+      const response = await perplexity.chat.completions.create({
+        model: 'sonar', // Perplexity's search-enabled model
         messages: [
           {
-            role: "system",
+            role: 'system',
             content: `You are a healthcare facility finder assistant. Provide detailed, accurate, and up-to-date information about hospitals, clinics, and doctors in India. 
 
 For each hospital/clinic, include:
@@ -397,12 +364,12 @@ For each hospital/clinic, include:
 - Approximate consultation fees if available
 - Ratings/reviews if available
 
-Format the response clearly with each facility separated.`,
+Format the response clearly with each facility separated.`
           },
           {
-            role: "user",
-            content: query,
-          },
+            role: 'user',
+            content: query
+          }
         ],
         max_tokens: 2000,
         temperature: 0.1, // Lower temperature for factual accuracy
@@ -411,43 +378,36 @@ Format the response clearly with each facility separated.`,
       const content = response.choices[0]?.message?.content;
 
       if (!content) {
-        throw new Error("Empty response from Perplexity");
+        throw new Error('Empty response from Perplexity');
       }
 
       // Extract citations if available
       const citations = response.citations || [];
 
-      console.log(
-        `Perplexity search successful - ${content.length} characters returned`,
-      );
+      console.log(`Perplexity search successful - ${content.length} characters returned`);
 
       return {
         success: true,
         content,
         citations,
-        model: "sonar",
-        provider: "perplexity",
+        model: 'sonar',
+        provider: 'perplexity'
       };
     } catch (error) {
       lastError = error;
-      console.error(
-        `Perplexity search attempt ${attempt} failed:`,
-        error.message,
-      );
+      console.error(`Perplexity search attempt ${attempt} failed:`, error.message);
 
       // If it's a rate limit error, wait before retrying
       if (error.status === 429 && attempt < maxRetries) {
-        console.log("Rate limited, waiting 2 seconds before retry...");
-        await new Promise((resolve) => setTimeout(resolve, 2000));
+        console.log('Rate limited, waiting 2 seconds before retry...');
+        await new Promise(resolve => setTimeout(resolve, 2000));
       }
     }
   }
 
   // All retries failed
-  console.error("All Perplexity search attempts failed");
-  throw new Error(
-    `Perplexity search failed after ${maxRetries} attempts: ${lastError?.message || "Unknown error"}`,
-  );
+  console.error('All Perplexity search attempts failed');
+  throw new Error(`Perplexity search failed after ${maxRetries} attempts: ${lastError?.message || 'Unknown error'}`);
 }
 
 /**
@@ -455,14 +415,14 @@ Format the response clearly with each facility separated.`,
  */
 async function validateApiKey() {
   if (!process.env.PERPLEXITY_API_KEY) {
-    return { valid: false, error: "PERPLEXITY_API_KEY not configured" };
+    return { valid: false, error: 'PERPLEXITY_API_KEY not configured' };
   }
 
   try {
-    await getPerplexityClient().chat.completions.create({
+    await perplexity.chat.completions.create({
       model: MODEL,
-      messages: [{ role: "user", content: "Test" }],
-      max_tokens: 10,
+      messages: [{ role: 'user', content: 'Test' }],
+      max_tokens: 10
     });
     return { valid: true };
   } catch (error) {
@@ -477,5 +437,5 @@ module.exports = {
   generateClinicianExplanation,
   generateCitations,
   searchWithPerplexity, // Added for hospital finding
-  validateApiKey,
+  validateApiKey
 };
