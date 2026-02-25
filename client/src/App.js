@@ -44,7 +44,7 @@ const scaleIn = {
 function App() {
     // State
     const [mode, setMode] = useState('patient');
-    const [selectedLanguage, setSelectedLanguage] = useState('en');
+    const [selectedLanguage] = useState('en');
     const [isLoading, setIsLoading] = useState(false);
     const [loadingMessage, setLoadingMessage] = useState('');
     const [results, setResults] = useState(null);
