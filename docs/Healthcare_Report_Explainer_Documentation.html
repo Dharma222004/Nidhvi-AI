@@ -1,0 +1,1028 @@
+<!DOCTYPE html>
+<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <title>Healthcare Imaging/Lab Report Explainer - Project Documentation</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 2.5cm 2cm 2cm 2.5cm;
+        }
+        body {
+            font-family: 'Calibri', 'Arial', sans-serif;
+            font-size: 11pt;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            color: #0ea5e9;
+            font-size: 24pt;
+            border-bottom: 3px solid #0ea5e9;
+            padding-bottom: 10px;
+            margin-top: 30px;
+        }
+        h2 {
+            color: #1e3a5f;
+            font-size: 16pt;
+            margin-top: 25px;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 5px;
+        }
+        h3 {
+            color: #2d5a87;
+            font-size: 13pt;
+            margin-top: 20px;
+        }
+        h4 {
+            color: #4a6fa5;
+            font-size: 11pt;
+            margin-top: 15px;
+        }
+        .cover-page {
+            text-align: center;
+            padding: 100px 0;
+            page-break-after: always;
+        }
+        .cover-title {
+            font-size: 32pt;
+            color: #0ea5e9;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+        .cover-subtitle {
+            font-size: 18pt;
+            color: #666;
+            margin-bottom: 40px;
+        }
+        .cover-date {
+            font-size: 12pt;
+            color: #999;
+            margin-top: 60px;
+        }
+        .toc {
+            margin: 30px 0;
+            page-break-after: always;
+        }
+        .toc h2 {
+            border-bottom: 2px solid #0ea5e9;
+        }
+        .toc ul {
+            list-style: none;
+            padding-left: 0;
+        }
+        .toc li {
+            margin: 10px 0;
+            padding: 5px 0;
+            border-bottom: 1px dotted #ccc;
+        }
+        .toc a {
+            color: #1e3a5f;
+            text-decoration: none;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+            font-size: 10pt;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+        }
+        th {
+            background-color: #f0f7fc;
+            color: #1e3a5f;
+            font-weight: bold;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        code {
+            background-color: #f5f5f5;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 10pt;
+        }
+        pre {
+            background-color: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 9pt;
+            border-left: 4px solid #0ea5e9;
+        }
+        .feature-box {
+            background-color: #f0f7fc;
+            border-left: 4px solid #0ea5e9;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .warning-box {
+            background-color: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .danger-box {
+            background-color: #f8d7da;
+            border-left: 4px solid #dc3545;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .success-box {
+            background-color: #d4edda;
+            border-left: 4px solid #28a745;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        ul, ol {
+            padding-left: 25px;
+        }
+        li {
+            margin: 5px 0;
+        }
+        .section {
+            page-break-inside: avoid;
+        }
+        .page-break {
+            page-break-before: always;
+        }
+        .footer {
+            text-align: center;
+            color: #999;
+            font-size: 10pt;
+            margin-top: 50px;
+            border-top: 1px solid #ddd;
+            padding-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+<!-- Cover Page -->
+<div class="cover-page">
+    <div class="cover-title">Healthcare Imaging/Lab Report Explainer</div>
+    <div class="cover-subtitle">Project Documentation</div>
+    <p style="font-size: 14pt; color: #666;">An AI-Powered Medical Report Analysis Platform</p>
+    <p style="font-size: 12pt; color: #777; margin-top: 30px;">
+        <strong>Version:</strong> 1.0.0<br>
+        <strong>Technology:</strong> React, Node.js, Google Gemini AI
+    </p>
+    <div class="cover-date">
+        <p>Document Generated: January 10, 2026</p>
+    </div>
+</div>
+
+<!-- Table of Contents -->
+<div class="toc">
+    <h2>Table of Contents</h2>
+    <ul>
+        <li>1. <a href="#overview">Project Overview</a></li>
+        <li>2. <a href="#features">Features and Capabilities</a></li>
+        <li>3. <a href="#architecture">System Architecture</a></li>
+        <li>4. <a href="#tech-stack">Technology Stack</a></li>
+        <li>5. <a href="#installation">Installation Guide</a></li>
+        <li>6. <a href="#project-structure">Project Structure</a></li>
+        <li>7. <a href="#api-documentation">API Documentation</a></li>
+        <li>8. <a href="#frontend-components">Frontend Components</a></li>
+        <li>9. <a href="#backend-services">Backend Services</a></li>
+        <li>10. <a href="#design-system">Design System</a></li>
+        <li>11. <a href="#security">Security & Compliance</a></li>
+        <li>12. <a href="#deployment">Deployment Guide</a></li>
+        <li>13. <a href="#testing">Testing</a></li>
+        <li>14. <a href="#environment">Environment Configuration</a></li>
+        <li>15. <a href="#disclaimers">Important Disclaimers</a></li>
+    </ul>
+</div>
+
+<!-- 1. Project Overview -->
+<div class="section page-break" id="overview">
+    <h1>1. Project Overview</h1>
+    
+    <h2>1.1 Introduction</h2>
+    <p>The <strong>Healthcare Imaging/Lab Report Explainer</strong> is an AI-powered web application designed to analyze medical reports (radiology and laboratory results) and generate clear, understandable explanations. The application bridges the gap between complex medical terminology and patient understanding while also providing concise clinical summaries for healthcare providers.</p>
+    
+    <h2>1.2 Purpose</h2>
+    <p>Medical reports often contain complex terminology, abbreviations, and clinical measurements that can be difficult for patients to understand. This application aims to:</p>
+    <ul>
+        <li>Democratize access to medical information understanding</li>
+        <li>Empower patients to have informed discussions with their healthcare providers</li>
+        <li>Provide clinicians with quick, structured summaries of reports</li>
+        <li>Identify critical values that require immediate attention</li>
+    </ul>
+    
+    <h2>1.3 Dual-Mode Operation</h2>
+    <div class="feature-box">
+        <h4>Patient Mode</h4>
+        <p>Provides simple, friendly language with actionable guidance. Uses everyday terms to explain medical findings, includes recommendations for follow-up questions, and offers reassurance where appropriate.</p>
+    </div>
+    <div class="feature-box">
+        <h4>Clinician Mode</h4>
+        <p>Delivers concise clinical summaries with critical values highlighted, differential diagnoses, and evidence-based recommendations. Designed for healthcare professionals who need quick access to key information.</p>
+    </div>
+</div>
+
+<!-- 2. Features -->
+<div class="section page-break" id="features">
+    <h1>2. Features and Capabilities</h1>
+    
+    <h2>2.1 Core Functionality</h2>
+    <table>
+        <tr>
+            <th>Feature</th>
+            <th>Description</th>
+            <th>Status</th>
+        </tr>
+        <tr>
+            <td>File Upload</td>
+            <td>Drag-and-drop support for PDF and image files (JPEG, PNG, WebP)</td>
+            <td>✅ Complete</td>
+        </tr>
+        <tr>
+            <td>Text Input</td>
+            <td>Paste report text directly for analysis</td>
+            <td>✅ Complete</td>
+        </tr>
+        <tr>
+            <td>Dual-Mode Explanations</td>
+            <td>Toggle between patient-friendly and clinician-focused outputs</td>
+            <td>✅ Complete</td>
+        </tr>
+        <tr>
+            <td>AI-Powered Analysis</td>
+            <td>Uses Google Gemini API for intelligent extraction and explanation</td>
+            <td>✅ Complete</td>
+        </tr>
+        <tr>
+            <td>Red Flag Detection</td>
+            <td>Automatically identifies critical values requiring attention</td>
+            <td>✅ Complete</td>
+        </tr>
+        <tr>
+            <td>Citations</td>
+            <td>References to authoritative medical sources (ACR, RSNA, etc.)</td>
+            <td>✅ Complete</td>
+        </tr>
+    </table>
+    
+    <h2>2.2 Safety & Compliance Features</h2>
+    <ul>
+        <li><strong>Clear Disclaimers:</strong> Prominent notices that this is not medical advice</li>
+        <li><strong>Critical Value Alerts:</strong> Urgent warnings for findings requiring immediate attention</li>
+        <li><strong>Privacy-First:</strong> Files processed securely, not stored permanently</li>
+        <li><strong>HIPAA-Conscious Design:</strong> No personally identifiable information stored</li>
+    </ul>
+    
+    <h2>2.3 Accessibility Features</h2>
+    <ul>
+        <li><strong>WCAG 2.1 AA Compliant:</strong> Screen reader friendly with ARIA labels</li>
+        <li><strong>Keyboard Navigation:</strong> Full functionality without a mouse</li>
+        <li><strong>High Contrast Mode:</strong> Toggle for improved visibility</li>
+        <li><strong>Adjustable Font Size:</strong> Small, normal, and large text options</li>
+        <li><strong>Mobile Responsive:</strong> Works on all device sizes</li>
+    </ul>
+    
+    <h2>2.4 Export Options</h2>
+    <table>
+        <tr>
+            <th>Format</th>
+            <th>Use Case</th>
+        </tr>
+        <tr>
+            <td>JSON</td>
+            <td>Structured data for integration with other systems</td>
+        </tr>
+        <tr>
+            <td>CSV</td>
+            <td>Spreadsheet-compatible format for data analysis</td>
+        </tr>
+        <tr>
+            <td>FHIR</td>
+            <td>HL7 FHIR-compliant DiagnosticReport format for healthcare interoperability</td>
+        </tr>
+    </table>
+</div>
+
+<!-- 3. Architecture -->
+<div class="section page-break" id="architecture">
+    <h1>3. System Architecture</h1>
+    
+    <h2>3.1 High-Level Architecture</h2>
+    <p>The application follows a modern client-server architecture with clear separation of concerns:</p>
+    
+    <pre>
+┌─────────────────────────────────────────────────────────────────┐
+│                        CLIENT (React)                           │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────┐ │
+│  │ File Upload │  │ Mode Toggle │  │ Results Display Panel   │ │
+│  └──────┬──────┘  └──────┬──────┘  └────────────┬────────────┘ │
+│         │                │                       │              │
+│         └────────────────┼───────────────────────┘              │
+│                          │                                       │
+│                    ┌─────┴─────┐                                │
+│                    │ API Layer │ (Axios)                        │
+└────────────────────┴─────┬─────┴────────────────────────────────┘
+                           │
+                    HTTP/REST API
+                           │
+┌────────────────────────────────────────────────────────────────┐
+│                      SERVER (Express.js)                        │
+│  ┌───────────────┐  ┌───────────────┐  ┌────────────────────┐ │
+│  │  Routes       │  │  Services     │  │  Middleware        │ │
+│  │  - /analyze   │  │  - Gemini AI  │  │  - CORS            │ │
+│  │  - /reports   │  │  - Safety     │  │  - Rate Limiting   │ │
+│  │  - /health    │  │  - Export     │  │  - File Upload     │ │
+│  └───────┬───────┘  └───────┬───────┘  └────────────────────┘ │
+│          │                  │                                   │
+│          └──────────────────┘                                   │
+│                    │                                            │
+│            ┌───────┴────────┐                                   │
+│            │ Gemini Service │                                   │
+└────────────┴───────┬────────┴───────────────────────────────────┘
+                     │
+                     ▼
+         ┌───────────────────────┐
+         │   Google Gemini API   │
+         │   (Vision + Text)     │
+         └───────────────────────┘
+    </pre>
+    
+    <h2>3.2 Data Flow</h2>
+    <ol>
+        <li><strong>Upload:</strong> User uploads a medical report (PDF/image) or pastes text</li>
+        <li><strong>Processing:</strong> Server receives and validates the input</li>
+        <li><strong>AI Extraction:</strong> Gemini Vision API extracts structured data from the report</li>
+        <li><strong>Analysis:</strong> System identifies findings, measurements, and critical values</li>
+        <li><strong>Explanation Generation:</strong> Gemini Text API generates mode-appropriate explanations</li>
+        <li><strong>Safety Check:</strong> Red flags and disclaimers are added</li>
+        <li><strong>Response:</strong> Complete analysis returned to client for display</li>
+    </ol>
+</div>
+
+<!-- 4. Tech Stack -->
+<div class="section page-break" id="tech-stack">
+    <h1>4. Technology Stack</h1>
+    
+    <h2>4.1 Frontend Technologies</h2>
+    <table>
+        <tr>
+            <th>Technology</th>
+            <th>Version</th>
+            <th>Purpose</th>
+        </tr>
+        <tr>
+            <td>React</td>
+            <td>18.2.0</td>
+            <td>UI framework for building interactive components</td>
+        </tr>
+        <tr>
+            <td>TailwindCSS</td>
+            <td>3.3.0</td>
+            <td>Utility-first CSS framework for styling</td>
+        </tr>
+        <tr>
+            <td>Framer Motion</td>
+            <td>10.18.0</td>
+            <td>Animation library for smooth transitions</td>
+        </tr>
+        <tr>
+            <td>React Dropzone</td>
+            <td>14.2.3</td>
+            <td>Drag-and-drop file upload component</td>
+        </tr>
+        <tr>
+            <td>Axios</td>
+            <td>1.6.0</td>
+            <td>HTTP client for API requests</td>
+        </tr>
+        <tr>
+            <td>PDF.js</td>
+            <td>3.11.174</td>
+            <td>PDF rendering and preview</td>
+        </tr>
+        <tr>
+            <td>React Icons</td>
+            <td>4.12.0</td>
+            <td>Icon library</td>
+        </tr>
+    </table>
+    
+    <h2>4.2 Backend Technologies</h2>
+    <table>
+        <tr>
+            <th>Technology</th>
+            <th>Version</th>
+            <th>Purpose</th>
+        </tr>
+        <tr>
+            <td>Node.js</td>
+            <td>18+</td>
+            <td>JavaScript runtime</td>
+        </tr>
+        <tr>
+            <td>Express</td>
+            <td>4.18.2</td>
+            <td>Web application framework</td>
+        </tr>
+        <tr>
+            <td>@google/generative-ai</td>
+            <td>0.21.0</td>
+            <td>Google Gemini API SDK</td>
+        </tr>
+        <tr>
+            <td>Multer</td>
+            <td>1.4.5</td>
+            <td>Multipart form data handling (file uploads)</td>
+        </tr>
+        <tr>
+            <td>Helmet</td>
+            <td>7.1.0</td>
+            <td>Security headers middleware</td>
+        </tr>
+        <tr>
+            <td>Express Rate Limit</td>
+            <td>7.1.5</td>
+            <td>API rate limiting</td>
+        </tr>
+        <tr>
+            <td>PDF Parse</td>
+            <td>1.1.1</td>
+            <td>PDF text extraction</td>
+        </tr>
+        <tr>
+            <td>UUID</td>
+            <td>9.0.0</td>
+            <td>Unique identifier generation</td>
+        </tr>
+    </table>
+    
+    <h2>4.3 AI Services</h2>
+    <div class="feature-box">
+        <h4>Google Gemini API</h4>
+        <ul>
+            <li><strong>Gemini Vision:</strong> Extracts text and structure from medical report images</li>
+            <li><strong>Gemini Pro:</strong> Generates natural language explanations and clinical summaries</li>
+        </ul>
+    </div>
+</div>
+
+<!-- 5. Installation -->
+<div class="section page-break" id="installation">
+    <h1>5. Installation Guide</h1>
+    
+    <h2>5.1 Prerequisites</h2>
+    <ul>
+        <li>Node.js 18+ installed</li>
+        <li>npm or yarn package manager</li>
+        <li>Google Gemini API key (<a href="https://makersuite.google.com/">Get one here</a>)</li>
+    </ul>
+    
+    <h2>5.2 Step-by-Step Installation</h2>
+    
+    <h3>Step 1: Clone the Repository</h3>
+    <pre>cd healthcare-report-explainer</pre>
+    
+    <h3>Step 2: Set Up the Backend</h3>
+    <pre>cd server
+cp .env.example .env
+# Edit .env and add your GEMINI_API_KEY
+npm install</pre>
+    
+    <h3>Step 3: Set Up the Frontend</h3>
+    <pre>cd ../client
+npm install</pre>
+    
+    <h3>Step 4: Start the Development Servers</h3>
+    <p>In one terminal (backend):</p>
+    <pre>cd server
+npm run dev</pre>
+    
+    <p>In another terminal (frontend):</p>
+    <pre>cd client
+npm start</pre>
+    
+    <h3>Step 5: Access the Application</h3>
+    <table>
+        <tr>
+            <th>Service</th>
+            <th>URL</th>
+        </tr>
+        <tr>
+            <td>Frontend</td>
+            <td>http://localhost:3000</td>
+        </tr>
+        <tr>
+            <td>Backend API</td>
+            <td>http://localhost:5000</td>
+        </tr>
+    </table>
+</div>
+
+<!-- 6. Project Structure -->
+<div class="section page-break" id="project-structure">
+    <h1>6. Project Structure</h1>
+    
+    <pre>
+healthcare-report-explainer/
+├── client/                     # React frontend
+│   ├── public/
+│   │   └── index.html          # HTML template
+│   ├── src/
+│   │   ├── components/         # React components
+│   │   │   ├── Header.js           # Application header
+│   │   │   ├── FileUpload.js       # File upload component
+│   │   │   ├── ModeToggle.js       # Patient/Clinician toggle
+│   │   │   ├── ResultsPanel.js     # Results container
+│   │   │   ├── PatientExplanation.js   # Patient mode display
+│   │   │   ├── ClinicianExplanation.js # Clinician mode display
+│   │   │   ├── CitationsPanel.js   # Citations display
+│   │   │   ├── SafetyAlerts.js     # Red flag alerts
+│   │   │   ├── DisclaimerBanner.js # Disclaimer component
+│   │   │   ├── LoadingOverlay.js   # Loading state
+│   │   │   └── TextInputModal.js   # Text input modal
+│   │   ├── services/
+│   │   │   └── api.js          # API client
+│   │   ├── App.js              # Main application
+│   │   ├── index.js            # Entry point
+│   │   └── index.css           # Styles
+│   ├── package.json
+│   ├── tailwind.config.js
+│   └── postcss.config.js
+│
+├── server/                     # Express backend
+│   ├── routes/
+│   │   ├── analyze.js          # Report analysis endpoints
+│   │   ├── reports.js          # Report retrieval/export
+│   │   └── health.js           # Health check endpoints
+│   ├── services/
+│   │   ├── geminiService.js    # Gemini AI integration
+│   │   └── safetyService.js    # Disclaimers & red flags
+│   ├── prompts/                # AI prompt templates
+│   ├── utils/                  # Utility functions
+│   ├── uploads/                # Temporary file storage
+│   ├── index.js                # Express server
+│   ├── package.json
+│   └── .env.example
+│
+├── sample-reports/             # Synthetic test reports
+├── docs/                       # Documentation
+└── README.md
+    </pre>
+</div>
+
+<!-- 7. API Documentation -->
+<div class="section page-break" id="api-documentation">
+    <h1>7. API Documentation</h1>
+    
+    <p><strong>Base URL:</strong> <code>http://localhost:5000/api</code></p>
+    
+    <h2>7.1 Analyze Report (File Upload)</h2>
+    <table>
+        <tr><th colspan="2">POST /api/analyze</th></tr>
+        <tr><td><strong>Content-Type</strong></td><td>multipart/form-data</td></tr>
+    </table>
+    
+    <h4>Request Parameters:</h4>
+    <table>
+        <tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr>
+        <tr><td>file</td><td>File</td><td>Yes</td><td>PDF or image file (JPEG, PNG, WebP)</td></tr>
+        <tr><td>mode</td><td>string</td><td>No</td><td>patient or clinician (default: patient)</td></tr>
+        <tr><td>language</td><td>string</td><td>No</td><td>en, ta, or hi (default: en)</td></tr>
+    </table>
+    
+    <h4>Response:</h4>
+    <pre>
+{
+  "success": true,
+  "reportId": "550e8400-e29b-41d4-a716-446655440000",
+  "processingTimeMs": 2340,
+  "mode": "patient",
+  "reportType": "radiology",
+  "reportSubtype": "Chest X-Ray",
+  "extraction": {
+    "findings": [...],
+    "measurements": [...],
+    "impressions": [...]
+  },
+  "explanation": {...},
+  "redFlags": [...],
+  "citations": [...],
+  "disclaimers": [...]
+}
+    </pre>
+    
+    <h2>7.2 Analyze Report (Text Input)</h2>
+    <table>
+        <tr><th colspan="2">POST /api/analyze/text</th></tr>
+        <tr><td><strong>Content-Type</strong></td><td>application/json</td></tr>
+    </table>
+    
+    <h4>Request Body:</h4>
+    <pre>
+{
+  "reportText": "CHEST X-RAY (PA AND LATERAL)\n\nFINDINGS: ...",
+  "mode": "patient",
+  "language": "en"
+}
+    </pre>
+    
+    <h2>7.3 Switch Mode</h2>
+    <table>
+        <tr><th colspan="2">POST /api/analyze/switch-mode</th></tr>
+    </table>
+    
+    <h4>Request Body:</h4>
+    <pre>
+{
+  "reportId": "550e8400-e29b-41d4-a716-446655440000",
+  "newMode": "clinician"
+}
+    </pre>
+    
+    <h2>7.4 Get Report</h2>
+    <table>
+        <tr><th colspan="2">GET /api/reports/:id</th></tr>
+    </table>
+    
+    <h2>7.5 Export Report</h2>
+    <table>
+        <tr><th colspan="2">GET /api/reports/:id/export?format=json|csv|fhir</th></tr>
+    </table>
+    
+    <h2>7.6 Health Check</h2>
+    <table>
+        <tr><th colspan="2">GET /api/health</th></tr>
+    </table>
+    
+    <h2>7.7 Rate Limits</h2>
+    <ul>
+        <li>100 requests per 15 minutes per IP address</li>
+        <li>File uploads limited to 10MB</li>
+    </ul>
+    
+    <h2>7.8 HTTP Status Codes</h2>
+    <table>
+        <tr><th>Code</th><th>Description</th></tr>
+        <tr><td>200</td><td>Success</td></tr>
+        <tr><td>400</td><td>Bad request (invalid input)</td></tr>
+        <tr><td>404</td><td>Report not found</td></tr>
+        <tr><td>429</td><td>Rate limit exceeded</td></tr>
+        <tr><td>500</td><td>Server error</td></tr>
+    </table>
+</div>
+
+<!-- 8. Frontend Components -->
+<div class="section page-break" id="frontend-components">
+    <h1>8. Frontend Components</h1>
+    
+    <h2>8.1 Component Overview</h2>
+    <table>
+        <tr>
+            <th>Component</th>
+            <th>Description</th>
+        </tr>
+        <tr>
+            <td>Header.js</td>
+            <td>Application header with branding and accessibility controls</td>
+        </tr>
+        <tr>
+            <td>FileUpload.js</td>
+            <td>Drag-and-drop file upload with preview support</td>
+        </tr>
+        <tr>
+            <td>ModeToggle.js</td>
+            <td>Toggle switch for Patient/Clinician mode selection</td>
+        </tr>
+        <tr>
+            <td>ResultsPanel.js</td>
+            <td>Container for displaying analysis results</td>
+        </tr>
+        <tr>
+            <td>PatientExplanation.js</td>
+            <td>Patient-friendly explanation display with simple language</td>
+        </tr>
+        <tr>
+            <td>ClinicianExplanation.js</td>
+            <td>Clinical summary with differential diagnoses</td>
+        </tr>
+        <tr>
+            <td>CitationsPanel.js</td>
+            <td>References to medical guidelines and sources</td>
+        </tr>
+        <tr>
+            <td>SafetyAlerts.js</td>
+            <td>Red flag and critical value warnings</td>
+        </tr>
+        <tr>
+            <td>DisclaimerBanner.js</td>
+            <td>Medical disclaimer display</td>
+        </tr>
+        <tr>
+            <td>LoadingOverlay.js</td>
+            <td>Loading state with progress animation</td>
+        </tr>
+        <tr>
+            <td>TextInputModal.js</td>
+            <td>Modal for pasting report text directly</td>
+        </tr>
+    </table>
+</div>
+
+<!-- 9. Backend Services -->
+<div class="section page-break" id="backend-services">
+    <h1>9. Backend Services</h1>
+    
+    <h2>9.1 Gemini Service</h2>
+    <p>The core AI service that interfaces with Google Gemini API for:</p>
+    <ul>
+        <li>Image and PDF text extraction using Gemini Vision</li>
+        <li>Structured data extraction from medical reports</li>
+        <li>Natural language explanation generation</li>
+        <li>Dual-mode output (Patient/Clinician)</li>
+    </ul>
+    
+    <h2>9.2 Safety Service</h2>
+    <p>Ensures appropriate safety measures are in place:</p>
+    <ul>
+        <li>Red flag detection for critical values</li>
+        <li>Disclaimer injection</li>
+        <li>Escalation warnings for urgent findings</li>
+        <li>Privacy notices</li>
+    </ul>
+    
+    <h2>9.3 Route Handlers</h2>
+    <table>
+        <tr>
+            <th>Route File</th>
+            <th>Endpoints</th>
+            <th>Purpose</th>
+        </tr>
+        <tr>
+            <td>analyze.js</td>
+            <td>/analyze, /analyze/text, /analyze/switch-mode</td>
+            <td>Report analysis operations</td>
+        </tr>
+        <tr>
+            <td>reports.js</td>
+            <td>/reports, /reports/:id, /reports/:id/export</td>
+            <td>Report retrieval and export</td>
+        </tr>
+        <tr>
+            <td>health.js</td>
+            <td>/health</td>
+            <td>System health monitoring</td>
+        </tr>
+    </table>
+</div>
+
+<!-- 10. Design System -->
+<div class="section page-break" id="design-system">
+    <h1>10. Design System</h1>
+    
+    <h2>10.1 Color Palette</h2>
+    <table>
+        <tr>
+            <th>Color</th>
+            <th>Hex Code</th>
+            <th>Usage</th>
+        </tr>
+        <tr>
+            <td style="background-color: #0ea5e9; color: white;">Primary</td>
+            <td>#0ea5e9</td>
+            <td>Trust, calm, healthcare branding</td>
+        </tr>
+        <tr>
+            <td style="background-color: #22c55e; color: white;">Success</td>
+            <td>#22c55e</td>
+            <td>Normal findings</td>
+        </tr>
+        <tr>
+            <td style="background-color: #f59e0b; color: white;">Warning</td>
+            <td>#f59e0b</td>
+            <td>Findings to discuss</td>
+        </tr>
+        <tr>
+            <td style="background-color: #ef4444; color: white;">Danger</td>
+            <td>#ef4444</td>
+            <td>Critical values</td>
+        </tr>
+        <tr>
+            <td style="background-color: #64748b; color: white;">Surface</td>
+            <td>Slate grays</td>
+            <td>Dark mode UI elements</td>
+        </tr>
+    </table>
+    
+    <h2>10.2 Typography</h2>
+    <table>
+        <tr>
+            <th>Use Case</th>
+            <th>Font</th>
+            <th>Weight</th>
+        </tr>
+        <tr>
+            <td>Headlines</td>
+            <td>Inter</td>
+            <td>600-700</td>
+        </tr>
+        <tr>
+            <td>Body Text</td>
+            <td>Inter</td>
+            <td>400-500</td>
+        </tr>
+        <tr>
+            <td>Code/Data</td>
+            <td>JetBrains Mono</td>
+            <td>400</td>
+        </tr>
+    </table>
+</div>
+
+<!-- 11. Security -->
+<div class="section page-break" id="security">
+    <h1>11. Security & Compliance</h1>
+    
+    <h2>11.1 Security Measures</h2>
+    <ul>
+        <li><strong>Helmet.js:</strong> Security headers to protect against common vulnerabilities</li>
+        <li><strong>Rate Limiting:</strong> Prevent abuse with request limits per IP</li>
+        <li><strong>CORS:</strong> Configured to allow only authorized origins</li>
+        <li><strong>File Validation:</strong> Strict file type and size validation</li>
+        <li><strong>Temporary Storage:</strong> Uploaded files are not stored permanently</li>
+    </ul>
+    
+    <h2>11.2 Privacy Considerations</h2>
+    <div class="warning-box">
+        <p><strong>Important:</strong> While designed for privacy, users should avoid uploading reports with sensitive identifying information in demo or development mode. For production use, implement proper HIPAA-compliant infrastructure.</p>
+    </div>
+    
+    <h2>11.3 Medical Disclaimers</h2>
+    <div class="danger-box">
+        <ul>
+            <li><strong>Not Medical Advice:</strong> This tool is for educational purposes only</li>
+            <li><strong>Consult Healthcare Providers:</strong> Always consult qualified professionals for medical decisions</li>
+            <li><strong>AI Limitations:</strong> The AI may not capture all nuances and may make errors</li>
+        </ul>
+    </div>
+</div>
+
+<!-- 12. Deployment -->
+<div class="section page-break" id="deployment">
+    <h1>12. Deployment Guide</h1>
+    
+    <h2>12.1 Docker Deployment</h2>
+    <pre>docker-compose up -d</pre>
+    
+    <h2>12.2 Google Cloud Deployment</h2>
+    
+    <h3>Backend (Cloud Run)</h3>
+    <pre>gcloud run deploy healthcare-api --source ./server</pre>
+    
+    <h3>Frontend (Firebase Hosting)</h3>
+    <pre>cd client && npm run build
+firebase deploy --only hosting</pre>
+    
+    <h2>12.3 Environment Setup for Production</h2>
+    <ul>
+        <li>Set <code>NODE_ENV=production</code></li>
+        <li>Configure proper API keys securely (use Secret Manager)</li>
+        <li>Set up HTTPS/SSL certificates</li>
+        <li>Configure proper CORS origins</li>
+        <li>Enable logging and monitoring</li>
+    </ul>
+</div>
+
+<!-- 13. Testing -->
+<div class="section page-break" id="testing">
+    <h1>13. Testing</h1>
+    
+    <h2>13.1 Sample Reports</h2>
+    <p>The application includes built-in sample reports for testing:</p>
+    <ul>
+        <li>Normal Chest X-Ray</li>
+        <li>CBC with mild anemia</li>
+        <li>CT Abdomen showing appendicitis</li>
+    </ul>
+    
+    <h2>13.2 Running Tests</h2>
+    
+    <h3>Backend Tests</h3>
+    <pre>cd server
+npm test</pre>
+    
+    <h3>Frontend Tests</h3>
+    <pre>cd client
+npm test</pre>
+</div>
+
+<!-- 14. Environment Configuration -->
+<div class="section page-break" id="environment">
+    <h1>14. Environment Configuration</h1>
+    
+    <h2>14.1 Backend Environment Variables</h2>
+    <table>
+        <tr>
+            <th>Variable</th>
+            <th>Required</th>
+            <th>Default</th>
+            <th>Description</th>
+        </tr>
+        <tr>
+            <td>GEMINI_API_KEY</td>
+            <td>Yes</td>
+            <td>-</td>
+            <td>Google Gemini API key</td>
+        </tr>
+        <tr>
+            <td>PORT</td>
+            <td>No</td>
+            <td>5000</td>
+            <td>Server port</td>
+        </tr>
+        <tr>
+            <td>NODE_ENV</td>
+            <td>No</td>
+            <td>development</td>
+            <td>Environment mode</td>
+        </tr>
+        <tr>
+            <td>FRONTEND_URL</td>
+            <td>No</td>
+            <td>http://localhost:3000</td>
+            <td>Frontend URL for CORS</td>
+        </tr>
+        <tr>
+            <td>MAX_FILE_SIZE_MB</td>
+            <td>No</td>
+            <td>10</td>
+            <td>Maximum upload file size</td>
+        </tr>
+    </table>
+    
+    <h2>14.2 Example .env File</h2>
+    <pre>
+# Required
+GEMINI_API_KEY=your_gemini_api_key
+
+# Optional
+PORT=5000
+NODE_ENV=development
+FRONTEND_URL=http://localhost:3000
+MAX_FILE_SIZE_MB=10
+    </pre>
+</div>
+
+<!-- 15. Disclaimers -->
+<div class="section page-break" id="disclaimers">
+    <h1>15. Important Disclaimers</h1>
+    
+    <div class="danger-box">
+        <h3>⚠️ Medical Disclaimer</h3>
+        <p>This application is designed for <strong>educational and informational purposes only</strong>. It does not provide medical diagnoses, treatment recommendations, or professional medical advice.</p>
+    </div>
+    
+    <h2>15.1 Key Points</h2>
+    <ol>
+        <li><strong>Not a Substitute for Professional Care:</strong> This tool cannot replace the expertise, judgment, and personalized care of licensed healthcare providers.</li>
+        
+        <li><strong>Always Consult Healthcare Providers:</strong> For any medical concerns, questions about your health, or medical decisions, always consult qualified healthcare professionals.</li>
+        
+        <li><strong>AI Limitations:</strong> The AI technology used may not capture all nuances in medical reports and may occasionally make errors. Always verify AI-generated information with original reports and healthcare providers.</li>
+        
+        <li><strong>Privacy Notice:</strong> While designed with privacy in mind, avoid uploading reports containing sensitive personal health information in demonstration or development environments.</li>
+        
+        <li><strong>Emergency Situations:</strong> If you are experiencing a medical emergency, call emergency services immediately. Do not rely on this or any other software application for emergency medical guidance.</li>
+    </ol>
+    
+    <h2>15.2 Intended Use</h2>
+    <p>This application is intended to:</p>
+    <ul>
+        <li>Help patients better understand medical terminology in their reports</li>
+        <li>Provide educational context about medical findings</li>
+        <li>Facilitate more informed discussions with healthcare providers</li>
+        <li>Assist clinicians with quick summaries (not replace their judgment)</li>
+    </ul>
+    
+    <div class="success-box">
+        <h3>Best Practice</h3>
+        <p>Use this tool as a starting point for understanding your medical reports, then discuss any questions or concerns with your healthcare provider.</p>
+    </div>
+</div>
+
+<!-- Footer -->
+<div class="footer">
+    <p>Healthcare Imaging/Lab Report Explainer - Project Documentation</p>
+    <p>Version 1.0.0 | Generated: January 10, 2026</p>
+    <p>Built with ❤️ for better healthcare understanding</p>
+    <p>MIT License</p>
+</div>
+
+</body>
+</html>

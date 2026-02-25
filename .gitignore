@@ -1,0 +1,46 @@
+# Environment variables (contains API keys)
+server/.env
+.env
+.env.local
+.env.*
+
+# Documentation artifacts (agent-generated logs)
+*_COMPLETE.md
+*_FIXES.md
+*_SUMMARY.md
+*_REFERENCE.md
+*_STRATEGY.md
+*_GUIDE.md
+*_PLAN.md
+*_QUICK_REF.md
+*FIXED.md
+*FIX.md
+PPT_CONTENT.md
+architecture_diagram.html
+
+# Dependencies
+node_modules/
+client/node_modules/
+server/node_modules/
+
+# Build outputs
+client/build/
+client/dist/
+dist/
+
+# Uploads
+server/uploads/
+!server/uploads/.gitkeep
+
+# IDE
+.vs/
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
