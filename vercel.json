@@ -16,19 +16,11 @@
     "rewrites": [
         {
             "source": "/api/(.*)",
-            "destination": "server/index.js"
-        },
-        {
-            "source": "/uploads/(.*)",
-            "destination": "server/index.js"
-        },
-        {
-            "source": "/((?!api|uploads).*\\.[^/.]+)",
-            "destination": "/client/$1"
+            "destination": "/server/index.js"
         },
         {
             "source": "/(.*)",
-            "destination": "/client/index.html"
+            "destination": "/client/$1"
         }
     ]
 }
