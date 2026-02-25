@@ -7,8 +7,33 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const fs = require('fs');
 const path = require('path');
 
-// Initialize Gemini AI
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+// Initialize Gemini API Keys from environment
+const GEMINI_KEYS = [
+  process.env.GEMINI_API_KEY_1,
+  process.env.GEMINI_API_KEY_2,
+  process.env.GEMINI_API_KEY_3,
+  process.env.GEMINI_API_KEY // Legacy fallback
+].filter(Boolean);
+
+let currentKeyIndex = 0;
+
+/**
+ * Get current GoogleGenerativeAI instance with rotating keys
+ */
+function getGenAI() {
+  const key = GEMINI_KEYS[currentKeyIndex];
+  return new GoogleGenerativeAI(key);
+}
+
+/**
+ * Rotate to the next available API key
+ */
+function rotateKey() {
+  if (GEMINI_KEYS.length <= 1) return false;
+  currentKeyIndex = (currentKeyIndex + 1) % GEMINI_KEYS.length;
+  console.log(`Rotating Gemini API key. Now using key ${currentKeyIndex + 1} of ${GEMINI_KEYS.length}`);
+  return true;
+}
 
 // Model configurations - using gemini-2.5-flash (latest model)
 const MODELS = {
@@ -23,18 +48,28 @@ const generationConfig = {
 };
 
 /**
- * Retry helper with exponential backoff for rate limiting
+ * Retry helper with exponential backoff and API key rotation
  */
 async function withRetry(fn, maxRetries = 3) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       return await fn();
     } catch (error) {
-      const isRateLimit = error.message?.includes('429') || error.message?.includes('quota');
+      const errorMsg = error.message?.toLowerCase() || '';
+      const isRateLimit = errorMsg.includes('429') || errorMsg.includes('quota') || errorMsg.includes('limit');
+      const isAuthError = errorMsg.includes('401') || errorMsg.includes('invalid') || errorMsg.includes('key');
 
-      if (isRateLimit && attempt < maxRetries) {
+      if ((isRateLimit || isAuthError) && attempt < maxRetries) {
+        // Try rotating the key if we have more than one
+        if (rotateKey()) {
+          console.log(`Key ${isRateLimit ? 'rate limited' : 'invalid'}, switched to a new key. Retrying immediately.`);
+          // After rotation, we retry without much delay as it's a fresh key
+          continue;
+        }
+
+        // If no more keys to rotate, use exponential backoff
         const delay = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
-        console.log(`Rate limited, retrying in ${delay / 1000}s (attempt ${attempt}/${maxRetries})`);
+        console.log(`Rate limited and no more keys to rotate, retrying in ${delay / 1000}s (attempt ${attempt}/${maxRetries})`);
         await new Promise(resolve => setTimeout(resolve, delay));
       } else {
         throw error;
@@ -42,6 +77,7 @@ async function withRetry(fn, maxRetries = 3) {
     }
   }
 }
+
 
 /**
  * Clean and parse potentially malformed JSON from AI responses
@@ -169,7 +205,9 @@ function fileToGenerativePart(filePath, mimeType) {
  * Extract content from medical report image/PDF
  */
 async function extractFromImage(filePath, mimeType) {
+  const genAI = getGenAI();
   const model = genAI.getGenerativeModel({ model: MODELS.vision, generationConfig });
+
 
   const imagePart = fileToGenerativePart(filePath, mimeType);
 
@@ -244,7 +282,9 @@ Respond ONLY with valid JSON.`;
  * Extract content from text-based report
  */
 async function extractFromText(reportText) {
+  const genAI = getGenAI();
   const model = genAI.getGenerativeModel({ model: MODELS.text, generationConfig });
+
 
   const extractionPrompt = `You are a medical report extraction specialist. Analyze this medical report text and extract all relevant information.
 
@@ -305,7 +345,9 @@ Respond ONLY with valid JSON.`;
  * Generate Patient-Mode Explanation
  */
 async function generatePatientExplanation(extractedData) {
+  const genAI = getGenAI();
   const model = genAI.getGenerativeModel({ model: MODELS.text, generationConfig });
+
 
   const prompt = `You are a compassionate healthcare communication specialist. Your job is to explain medical reports to patients in simple, reassuring language.
 
@@ -461,7 +503,9 @@ Respond ONLY with valid JSON.`;
  * Generate citations for the explanation
  */
 async function generateCitations(extractedData, reportType) {
+  const genAI = getGenAI();
   const model = genAI.getGenerativeModel({ model: MODELS.text, generationConfig });
+
 
   const prompt = `Based on this medical report analysis, generate relevant citations from authoritative medical sources.
 
@@ -541,7 +585,9 @@ async function validateApiKey() {
  * Find hospitals and doctors using Gemini (Fallback)
  */
 async function findHospitalsWithGemini(query) {
+  const genAI = getGenAI();
   const model = genAI.getGenerativeModel({ model: MODELS.text, generationConfig });
+
 
   const prompt = `You are a healthcare facility finder assistant. Provide detailed information about hospitals, clinics, and doctors in India based on your knowledge.
   
