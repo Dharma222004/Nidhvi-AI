@@ -573,6 +573,7 @@ async function validateApiKey() {
   }
 
   try {
+    const genAI = getGenAI();
     const model = genAI.getGenerativeModel({ model: MODELS.text });
     await model.generateContent('Test');
     return { valid: true };
