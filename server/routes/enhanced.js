@@ -596,6 +596,161 @@ router.get('/languages', (req, res) => {
     });
 });
 
+/**
+ * POST /api/enhanced/analyze-stream
+ * Streaming analysis using SSE — returns results incrementally as they are ready
+ */
+router.post('/analyze-stream', upload.single('file'), async (req, res) => {
+    // SSE headers
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('Access-Control-Allow-Origin', process.env.FRONTEND_URL || 'http://localhost:3000');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.flushHeaders();
+
+    const send = (event, data) => {
+        res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    };
+
+    try {
+        const { mode = 'patient', language = 'en' } = req.body;
+
+        if (!req.file) {
+            send('error', { message: 'No file uploaded' });
+            return res.end();
+        }
+
+        send('status', { message: 'Extracting text from your report...', progress: 10 });
+
+        // Step 1: Extract
+        const fileBuffer = req.file.buffer;
+        const mimeType = req.file.mimetype;
+        const { extractFromImage } = require('../services/geminiService');
+        const extractedData = await extractFromImage(fileBuffer, mimeType);
+        send('extraction', extractedData);
+        send('status', { message: 'Analyzing medical findings...', progress: 30 });
+
+        // Step 2: Analyze (Groq)
+        const analysisPrompt = `You are a medical AI assistant. Analyze this medical report data and return ONLY valid JSON.
+
+EXTRACTED DATA:
+${JSON.stringify(extractedData, null, 2)}
+
+Return JSON with these exact fields:
+{
+  "summary": "2-3 sentence plain language overview",
+  "reportType": "blood_test|radiology|prescription|other",
+  "patientInfo": { "age": "", "gender": "" },
+  "keyFindings": [{ "finding": "", "status": "normal|abnormal|critical", "significance": "low|medium|high" }],
+  "abnormalValues": [{ "parameter": "", "value": "", "normalRange": "", "deviation": "" }],
+  "possibleConditions": [{ "condition": "", "confidence": "low|medium|high", "supportingFindings": [] }],
+  "severity": "low|medium|high|critical",
+  "recommendedSpecialist": "specialist type",
+  "nextSteps": ["step1", "step2"],
+  "questionsForDoctor": ["question1", "question2", "question3"],
+  "disclaimer": "Always consult a qualified healthcare professional."
+}`;
+
+        const analysisResponse = await generateChatCompletion({
+            messages: [
+                { role: 'system', content: 'You are a medical AI assistant. Return ONLY valid JSON, no markdown.' },
+                { role: 'user', content: analysisPrompt }
+            ],
+            model: 'llama-3.3-70b-versatile',
+            temperature: 0.1,
+            maxTokens: 3000,
+            responseFormat: { type: 'json_object' }
+        });
+
+        const analysis = JSON.parse(analysisResponse.content);
+
+        // Build hospital search params + detect location from report
+        const { extractLocationFromReport } = require('../services/hospitalFinderService');
+        const detectedLoc = extractLocationFromReport(extractedData.rawText || '');
+        const detectedLocationStr = detectedLoc
+            ? (detectedLoc.fullAddress || detectedLoc.city || (detectedLoc.pincode ? `Pincode ${detectedLoc.pincode}` : null))
+            : null;
+
+        const hospitalSearchParams = {
+            condition: analysis.possibleConditions?.[0]?.condition || 'general checkup',
+            specialistType: analysis.recommendedSpecialist || 'General Physician',
+            severity: analysis.severity || 'medium',
+            needsDoctor: analysis.severity === 'high' || analysis.severity === 'critical' ||
+                (analysis.abnormalValues && analysis.abnormalValues.length > 0),
+            detectedLocation: detectedLocationStr,
+            recommendation: {
+                title: analysis.severity === 'critical' ? 'Seek Immediate Medical Attention' :
+                    analysis.severity === 'high' ? 'Doctor Visit Recommended' : 'Discuss with Your Doctor',
+                message: analysis.severity === 'critical'
+                    ? 'Your results show critical findings. Please visit a hospital immediately.'
+                    : analysis.severity === 'high'
+                        ? 'Some findings need medical attention. Please schedule an appointment soon.'
+                        : 'You may want to discuss these results with your healthcare provider.',
+                timeline: analysis.severity === 'critical' ? 'Immediately' :
+                    analysis.severity === 'high' ? 'Within 1-2 days' : 'At your convenience'
+            }
+        };
+
+        send('analysis', { analysis, hospitalSearchParams });
+        send('status', { message: 'Generating patient-friendly explanation...', progress: 55 });
+
+        // Step 3: Stream Explanation (Gemini streaming)
+        const { generatePatientExplanationStream, generateClinicianExplanationStream } = require('../services/geminiService');
+
+        let fullExplanation = '';
+        try {
+            if (mode === 'clinician') {
+                await generateClinicianExplanationStream(extractedData, (chunk) => {
+                    fullExplanation += chunk;
+                    send('explanation_chunk', { chunk, mode: 'clinician' });
+                });
+                send('explanation_final', { clinicalSummary: fullExplanation, mode: 'clinician' });
+            } else {
+                await generatePatientExplanationStream(extractedData, (chunk) => {
+                    fullExplanation += chunk;
+                    send('explanation_chunk', { chunk, mode: 'patient' });
+                });
+                // Build structured explanation from streamed text
+                const paragraphs = fullExplanation.split('\n\n').filter(Boolean);
+                send('explanation_final', {
+                    summary: paragraphs[0] || '',
+                    explanation: fullExplanation,
+                    nextSteps: analysis.nextSteps || [],
+                    questionsForDoctor: analysis.questionsForDoctor || [],
+                    mode: 'patient'
+                });
+            }
+        } catch (explainErr) {
+            console.error('Explanation streaming error:', explainErr);
+            // Fallback: use analysis summary
+            send('explanation_final', {
+                summary: analysis.summary || '',
+                explanation: analysis.summary || 'Analysis complete. Please consult your doctor.',
+                nextSteps: analysis.nextSteps || [],
+                questionsForDoctor: analysis.questionsForDoctor || []
+            });
+        }
+
+        send('status', { message: 'Running safety checks...', progress: 90 });
+
+        // Step 4: Safety
+        const redFlags = detectRedFlags(extractedData);
+        const disclaimers = getStandardDisclaimers();
+        send('safety', { redFlags, disclaimers });
+
+        send('status', { message: 'Analysis complete! ✅', progress: 100 });
+        send('done', { success: true });
+        res.end();
+
+    } catch (error) {
+        console.error('Streaming analysis error:', error);
+        send('error', { message: error.message || 'Analysis failed. Please try again.' });
+        res.end();
+    }
+});
+
 module.exports = router;
+
 
 

@@ -65,49 +65,120 @@ function App() {
     const [highContrast, setHighContrast] = useState(false);
     const [fontSize, setFontSize] = useState('normal');
 
-    // Handle file upload with enhanced analysis
+    // Handle file upload with streaming analysis (SSE)
     const handleFileUpload = useCallback(async (file) => {
         setIsLoading(true);
         setLoadingMessage('Uploading your report...');
         setError(null);
         setResults(null);
-        // Store the original filename (without extension)
         const originalName = file.name.replace(/\.[^/.]+$/, '');
         setUploadedFileName(originalName);
-        // Hospital data is now loaded on-demand via button click
 
         try {
-            setLoadingMessage('Extracting text from report...');
-
             const formData = new FormData();
             formData.append('file', file);
             formData.append('mode', mode);
             formData.append('language', selectedLanguage);
 
-            setLoadingMessage('Analyzing medical content...');
-
-            const response = await axios.post('/api/enhanced/analyze', formData, {
-                headers: {
-                    'Content-Type': 'multipart/form-data'
-                }
+            // IMPORTANT: fetch() does NOT go through CRA proxy — use full server URL
+            const serverUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+            const response = await fetch(`${serverUrl}/api/enhanced/analyze-stream`, {
+                method: 'POST',
+                body: formData
             });
 
-            if (response.data.success) {
-                // Save current scroll position before updating UI
-                scrollPositionRef.current = window.scrollY;
-                setResults(response.data);
-                // Hospital data will be loaded on-demand when user clicks button
-                setLoadingMessage('Analysis complete!');
-            } else {
-                throw new Error(response.data.error || 'Analysis failed');
+            if (!response.ok) {
+                let errMsg = `Server error ${response.status}`;
+                try { const j = await response.json(); errMsg = j.error || errMsg; } catch (_) { }
+                throw new Error(errMsg);
             }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+
+            // Accumulated data object that fills in progressively
+            let acc = {
+                success: true,
+                extraction: null,
+                analysis: null,
+                explanation: mode === 'clinician'
+                    ? { clinicalSummary: '' }
+                    : { summary: '', explanation: '', nextSteps: [], questionsForDoctor: [] },
+                hospitalSearchParams: null,
+                redFlags: [],
+                disclaimers: []
+            };
+
+            let buffer = '';
+
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+                const parts = buffer.split('\n\n');
+                buffer = parts.pop(); // keep incomplete last chunk
+
+                for (const part of parts) {
+                    if (!part.trim()) continue;
+                    try {
+                        const lines = part.split('\n');
+                        const eventLine = lines.find(l => l.startsWith('event: '));
+                        const dataLine = lines.find(l => l.startsWith('data: '));
+                        if (!eventLine || !dataLine) continue;
+
+                        const event = eventLine.replace('event: ', '').trim();
+                        const data = JSON.parse(dataLine.replace('data: ', ''));
+
+                        switch (event) {
+                            case 'status':
+                                setLoadingMessage(data.message);
+                                break;
+                            case 'extraction':
+                                acc = { ...acc, extraction: data };
+                                scrollPositionRef.current = window.scrollY;
+                                setResults({ ...acc });
+                                break;
+                            case 'analysis':
+                                acc = { ...acc, analysis: data.analysis, hospitalSearchParams: data.hospitalSearchParams };
+                                setResults({ ...acc });
+                                break;
+                            case 'explanation_chunk':
+                                if (mode === 'clinician') {
+                                    acc.explanation = { ...acc.explanation, clinicalSummary: (acc.explanation.clinicalSummary || '') + data.chunk };
+                                } else {
+                                    acc.explanation = { ...acc.explanation, explanation: (acc.explanation.explanation || '') + data.chunk };
+                                }
+                                setResults({ ...acc });
+                                break;
+                            case 'explanation_final':
+                                acc.explanation = { ...acc.explanation, ...data };
+                                setResults({ ...acc });
+                                break;
+                            case 'safety':
+                                acc = { ...acc, redFlags: data.redFlags, disclaimers: data.disclaimers };
+                                setResults({ ...acc });
+                                break;
+                            case 'error':
+                                throw new Error(data.message);
+                            case 'done':
+                                setIsLoading(false);
+                                break;
+                            default: break;
+                        }
+                    } catch (parseErr) {
+                        console.warn('SSE parse error:', parseErr, part);
+                    }
+                }
+            }
+            setIsLoading(false);
         } catch (err) {
-            console.error('Upload error:', err);
-            setError(err.response?.data?.message || err.message || 'Failed to analyze report');
-        } finally {
+            console.error('Streaming upload error:', err);
+            setError(err.message || 'Failed to analyze report. Is the server running on port 5000?');
             setIsLoading(false);
         }
     }, [mode, selectedLanguage]);
+
 
     // Handle text submit
     const handleTextSubmit = useCallback(async (text) => {

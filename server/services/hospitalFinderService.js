@@ -7,12 +7,51 @@
 const { searchWithPerplexity } = require('./perplexityService');
 
 /**
- * Extract location from medical report text
+ * Extract location from medical report text (smart multi-pass extraction)
  */
 function extractLocationFromReport(reportText) {
     if (!reportText) return null;
 
-    // Major Indian cities to detect
+    const text = reportText;
+    const textLower = text.toLowerCase();
+
+    // ── Pass 1: Scan/Lab/Diagnostic center header with address ──
+    const centerHeaderPatterns = [
+        /(?:scan\s*center|diagnostic\s*center|imaging\s*center|pathology\s*lab|laboratory|medical\s*center|radiology\s*center)[^\n]*\n([^\n]+(?:,\s*[^\n]+){1,3})/gi,
+        /(?:centre|center|lab|laboratory|clinic|hospital)\s*[:–-]\s*([^\n,]+(?:,\s*[^\n,]+){1,4})/gi,
+        /(?:address|addr\.?)\s*[:–-]\s*([^\n]+(?:\n[^\n]+){0,2})/gi,
+    ];
+
+    for (const pattern of centerHeaderPatterns) {
+        const match = pattern.exec(text);
+        if (match && match[1] && match[1].trim().length > 10) {
+            const addr = match[1].trim().replace(/\n/g, ', ');
+            const pinMatch = addr.match(/\b(\d{6})\b/);
+            const cityFromAddr = extractCityFromString(addr);
+            return {
+                fullAddress: addr,
+                city: cityFromAddr,
+                pincode: pinMatch ? pinMatch[1] : null,
+                type: 'center_address',
+                detected: true
+            };
+        }
+    }
+
+    // ── Pass 2: Pincode (6-digit Indian) anywhere in text ──
+    const pinMatch = text.match(/\b(\d{6})\b/);
+    if (pinMatch) {
+        const surroundingText = text.substring(Math.max(0, pinMatch.index - 80), pinMatch.index + 20);
+        const cityFromSurround = extractCityFromString(surroundingText);
+        return {
+            pincode: pinMatch[1],
+            city: cityFromSurround,
+            type: 'pincode',
+            detected: true
+        };
+    }
+
+    // ── Pass 3: Major Indian cities ──
     const majorCities = [
         'Mumbai', 'Delhi', 'New Delhi', 'Bangalore', 'Bengaluru', 'Chennai',
         'Kolkata', 'Hyderabad', 'Pune', 'Ahmedabad', 'Jaipur', 'Lucknow',
@@ -25,50 +64,47 @@ function extractLocationFromReport(reportText) {
         'Bareilly', 'Aligarh', 'Tiruppur', 'Moradabad', 'Jalandhar', 'Bhubaneswar',
         'Salem', 'Warangal', 'Guntur', 'Bhiwandi', 'Saharanpur', 'Gorakhpur',
         'Bikaner', 'Amravati', 'Noida', 'Jamshedpur', 'Bhilai', 'Cuttack',
-        'Firozabad', 'Kochi', 'Nellore', 'Bhavnagar', 'Dehradun', 'Durgapur',
-        'Asansol', 'Rourkela', 'Nanded', 'Kolhapur', 'Ajmer', 'Akola',
-        'Gulbarga', 'Jamnagar', 'Ujjain', 'Loni', 'Siliguri', 'Jhansi',
-        'Ulhasnagar', 'Navi Mumbai', 'Jammu', 'Sangli', 'Mangalore', 'Erode',
-        'Belgaum', 'Ambattur', 'Tirunelveli', 'Malegaon', 'Gaya', 'Jalgaon',
-        'Udaipur', 'Maheshtala', 'Chengalpattu', 'Tiruvannamalai', 'Thanjavur',
-        'Thiruvananthapuram', 'Kurnool', 'Tirupati', 'Pondicherry', 'Puducherry'
+        'Kochi', 'Nellore', 'Bhavnagar', 'Dehradun', 'Durgapur', 'Asansol',
+        'Rourkela', 'Nanded', 'Kolhapur', 'Ajmer', 'Ujjain', 'Siliguri',
+        'Jhansi', 'Jammu', 'Sangli', 'Mangalore', 'Erode', 'Belgaum',
+        'Tirunelveli', 'Gaya', 'Jalgaon', 'Udaipur', 'Chengalpattu',
+        'Tiruvannamalai', 'Thanjavur', 'Thiruvananthapuram', 'Kurnool', 'Tirupati',
+        'Pondicherry', 'Puducherry', 'Vellore', 'Trichy', 'Nagercoil', 'Cuddalore'
     ];
-
-    const textLower = reportText.toLowerCase();
 
     for (const city of majorCities) {
         if (textLower.includes(city.toLowerCase())) {
-            return {
-                city: city,
-                area: null,
-                detected: true
-            };
-        }
-    }
-
-    // Try to find from address patterns
-    const addressPatterns = [
-        /(?:hospital|clinic|center|centre)[^,\n]*,\s*([A-Za-z\s]+),?\s*(?:India)?/i,
-        /(?:address|location|place)[:\s]*[^,\n]*,\s*([A-Za-z\s]+)/i,
-        /(?:city|district)[:\s]*([A-Za-z\s]+)/i
-    ];
-
-    for (const pattern of addressPatterns) {
-        const match = reportText.match(pattern);
-        if (match && match[1]) {
-            const cityName = match[1].trim();
-            if (cityName.length > 2 && cityName.length < 30) {
-                return {
-                    city: cityName,
-                    area: null,
-                    detected: true
-                };
-            }
+            return { city, type: 'city', detected: true };
         }
     }
 
     return null;
 }
+
+/**
+ * Helper: extract a known city name from an arbitrary string
+ */
+function extractCityFromString(str) {
+    if (!str) return null;
+    const strLower = str.toLowerCase();
+    const cities = [
+        'Chennai', 'Mumbai', 'Delhi', 'Bangalore', 'Bengaluru', 'Kolkata', 'Hyderabad',
+        'Pune', 'Ahmedabad', 'Jaipur', 'Lucknow', 'Coimbatore', 'Madurai', 'Salem',
+        'Erode', 'Vellore', 'Trichy', 'Tirunelveli', 'Pondicherry', 'Kochi',
+        'Thiruvananthapuram', 'Mysore', 'Mangalore', 'Chandigarh', 'Indore', 'Nagpur',
+        'Bhopal', 'Surat', 'Vadodara', 'Rajkot', 'Jodhpur', 'Udaipur',
+        'Patna', 'Ranchi', 'Bhubaneswar', 'Guwahati', 'Dehradun', 'Noida',
+        'Gurgaon', 'Faridabad', 'Agra', 'Varanasi', 'Allahabad', 'Kanpur',
+        'Amritsar', 'Ludhiana', 'Jalandhar', 'Visakhapatnam', 'Vijayawada',
+        'Guntur', 'Kurnool', 'Tirupati', 'Warangal', 'Nellore', 'Nashik', 'Aurangabad'
+    ];
+    for (const c of cities) {
+        if (strLower.includes(c.toLowerCase())) return c;
+    }
+    return null;
+}
+
+
 
 /**
  * Find hospitals and doctors based on condition and location
@@ -84,16 +120,22 @@ async function findHospitalsAndDoctors(params) {
 
     // Try to extract location from report
     const reportLocation = extractLocationFromReport(reportText);
-    const location = userLocation || reportLocation?.city || 'India';
+    // Priority: manual user input > extracted from scan center/pincode > extracted city > fallback
+    const detectedCity = reportLocation?.city || null;
+    const detectedPincode = reportLocation?.pincode || null;
+    const detectedAddress = reportLocation?.fullAddress || null;
+    const location = userLocation || detectedCity || (detectedPincode ? `pincode ${detectedPincode}` : null) || 'India';
 
-    console.log(`Searching for ${specialistType} near ${location} for ${condition}`);
+    console.log(`Searching for ${specialistType} near "${location}" for ${condition}`);
 
-    // Build structured search query for Perplexity
+    // Build an accurate, precision query for Perplexity
     const searchQuery = buildHospitalSearchQuery({
         condition,
         specialistType,
         location,
-        filterType
+        filterType,
+        pincode: detectedPincode,
+        fullAddress: detectedAddress
     });
 
     try {
@@ -153,35 +195,43 @@ async function findHospitalsAndDoctors(params) {
 /**
  * Build a structured search query for better Perplexity results
  */
-function buildHospitalSearchQuery({ condition, specialistType, location, filterType }) {
+function buildHospitalSearchQuery({ condition, specialistType, location, filterType, pincode, fullAddress }) {
     const hospitalType = filterType === 'govt' ? 'government' :
         filterType === 'private' ? 'private' :
-            'government and private';
+            'both government and private';
 
-    return `I need a list of the TOP 10 real, verified, and highly-rated ${hospitalType} hospitals and specialized ${specialistType} doctors in ${location}, India, specifically for treating ${condition}.
+    // Build location context string
+    let locationContext = location;
+    if (pincode && !location.includes(pincode)) {
+        locationContext = `${location} (pincode: ${pincode})`;
+    }
+    if (fullAddress) {
+        locationContext = `${location} — near "${fullAddress}"`;
+    }
 
-CRITICAL INSTRUCTIONS:
-1. Only include medical facilities that ACTUALLY EXIST in ${location}.
-2. Provide the EXACT, full address including the pin code if possible.
-3. Provide the CURRENT, WORKING phone numbers (mobile or landline).
-4. List at least 2-3 specific doctors (specialists) for each facility.
-5. Provide real Google/Practo ratings if you can find them.
-6. Mention if the hospital has a dedicated ${specialistType} department.
+    return `Search for the best real hospitals and specialist doctors for a patient with "${condition}" who needs a "${specialistType}" in ${locationContext}, India.
 
-For EACH facility, follow this EXACT template:
+Find ${hospitalType} hospitals. Requirements:
+- The hospitals MUST be physically located IN or very near ${location}.
+- Only include REAL, verifiable hospitals that you are confident exist.
+- Prioritize hospitals with dedicated ${specialistType} departments.
+- Prefer hospitals within 5–10 km of "${location}" if a specific area is mentioned.
 
-HOSPITAL: [Full Legal Name]
-TYPE: [Government/Private]
-ADDRESS: [Complete detailed address]
-PHONE: [Active phone number(s)]
-DOCTORS: [Dr. Name 1 (Specialty), Dr. Name 2 (Specialty)]
-SPECIALTIES: [Department Name 1, Department Name 2]
-TIMING: [Consultation hours, e.g., 24x7 or 9AM-5PM]
-CONSULTATION_FEE: [Estimated INR amount]
-RATING: [X.X/5 based on real reviews]
+For EACH hospital, provide this EXACT structured format:
 
-Ensure the information is as current as possible. If you are unsure of a specific detail like the fee, use an estimate like "₹500 - ₹1000".`;
+HOSPITAL: [Exact legal name of the hospital]
+TYPE: [Government / Private]
+ADDRESS: [Full street address with area, city, and PIN code]
+PHONE: [Correct working phone number(s)]
+DOCTORS: [Dr. Name 1 (Specialization), Dr. Name 2 (Specialization)]
+SPECIALTIES: [${specialistType} Dept, other relevant depts]
+TIMING: [OPD hours or 24x7]
+CONSULTATION_FEE: [Estimated fee in INR, e.g. ₹300-500 for govt, ₹700-1500 for private]
+RATING: [Google/Practo rating out of 5]
+
+List at least 5 hospitals. Start with the most reputed/closest ones. Do NOT invent details — if you are not sure about a phone number, write "Call hospital directly".`;
 }
+
 
 /**
  * Parse Perplexity response into structured hospital data

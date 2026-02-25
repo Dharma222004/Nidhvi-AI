@@ -517,6 +517,80 @@ Respond ONLY with valid JSON.`;
 }
 
 /**
+ * Generate Patient Explanation with streaming (calls onChunk for each text chunk)
+ */
+async function generatePatientExplanationStream(extractedData, onChunk) {
+  const genAI = getGenAI();
+  const model = genAI.getGenerativeModel({ model: MODELS.text });
+
+  const prompt = `You are a compassionate healthcare communication specialist. Explain this medical report to the patient in simple, kind, reassuring language.
+
+REPORT DATA:
+${JSON.stringify(extractedData, null, 2)}
+
+Write a thorough plain-English explanation covering:
+1. What this report is about (2-3 sentences)
+2. What your key findings are and what they mean in everyday terms
+3. What is normal vs. what needs attention
+4. Clear next steps to take
+5. 3-5 questions to ask your doctor
+6. A brief reassuring closing message
+
+Write in flowing paragraphs (no JSON). Use simple language a 10-year-old could understand. Be warm and caring.`;
+
+  try {
+    const result = await model.generateContentStream(prompt);
+    let fullText = '';
+    for await (const chunk of result.stream) {
+      const chunkText = chunk.text();
+      fullText += chunkText;
+      if (onChunk) onChunk(chunkText);
+    }
+    return { explanation: fullText, summary: fullText.split('\n\n')[0] || '' };
+  } catch (error) {
+    console.error('Patient explanation stream error:', error);
+    throw error;
+  }
+}
+
+/**
+ * Generate Clinician Explanation with streaming (calls onChunk for each text chunk)
+ */
+async function generateClinicianExplanationStream(extractedData, onChunk) {
+  const genAI = getGenAI();
+  const model = genAI.getGenerativeModel({ model: MODELS.text });
+
+  const prompt = `You are a clinical decision support specialist. Generate a concise clinical summary for this medical report.
+
+REPORT DATA:
+${JSON.stringify(extractedData, null, 2)}
+
+Provide a structured clinical summary covering:
+## Clinical Synopsis
+## Key Abnormal Findings
+## Differential Diagnoses
+## Recommended Next Steps (evidence-based)
+## Clinical Pearls
+
+Use clinical terminology. Be concise and scannable. Use bullet points where appropriate.
+Do NOT use JSON format — write clear professional clinical prose with markdown headings.`;
+
+  try {
+    const result = await model.generateContentStream(prompt);
+    let fullText = '';
+    for await (const chunk of result.stream) {
+      const chunkText = chunk.text();
+      fullText += chunkText;
+      if (onChunk) onChunk(chunkText);
+    }
+    return { clinicalSummary: fullText };
+  } catch (error) {
+    console.error('Clinician explanation stream error:', error);
+    throw error;
+  }
+}
+
+/**
  * Generate citations for the explanation
  */
 async function generateCitations(extractedData, reportType) {
@@ -654,7 +728,10 @@ module.exports = {
   extractFromText,
   generatePatientExplanation,
   generateClinicianExplanation,
+  generatePatientExplanationStream,
+  generateClinicianExplanationStream,
   generateCitations,
   validateApiKey,
   findHospitalsWithGemini
 };
+
