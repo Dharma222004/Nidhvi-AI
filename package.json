@@ -1,7 +1,6 @@
 {
     "name": "healthcare-report-explainer",
     "version": "1.0.0",
-<<<<<<< HEAD
     "scripts": {
         "start": "cd server && npm start",
         "dev": "concurrently \"cd server && npm run dev\" \"cd client && npm start\"",
@@ -9,14 +8,5 @@
     },
     "devDependencies": {
         "concurrently": "^8.2.2"
-=======
-    "private": true,
-    "scripts": {
-        "start": "node server/index.js",
-        "client-install": "cd client && npm install",
-        "server-install": "cd server && npm install",
-        "install-all": "npm run client-install && npm run server-install",
-        "build": "cd client && CI=false npm run build"
->>>>>>> dcd52a959bdb91ce4340e0498b60e9c8a5d57696
     }
 }

@@ -211,19 +211,11 @@ function toGenerativePart(input, mimeType) {
  * Extract content from medical report image/PDF
  * @param {string|Buffer} input - File path or Buffer
  */
-<<<<<<< HEAD
 async function extractFromImage(input, mimeType) {
-  const model = genAI.getGenerativeModel({ model: MODELS.vision, generationConfig });
-
-  const imagePart = toGenerativePart(input, mimeType);
-=======
-async function extractFromImage(filePath, mimeType) {
   const genAI = getGenAI();
   const model = genAI.getGenerativeModel({ model: MODELS.vision, generationConfig });
 
-
-  const imagePart = fileToGenerativePart(filePath, mimeType);
->>>>>>> dcd52a959bdb91ce4340e0498b60e9c8a5d57696
+  const imagePart = toGenerativePart(input, mimeType);
 
   const extractionPrompt = `You are a medical report extraction specialist. Analyze this medical report image and extract all relevant information.
 

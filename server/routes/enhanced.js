@@ -19,11 +19,7 @@ const { getStandardDisclaimers, detectRedFlags } = require('../services/safetySe
 // Configure multer for file uploads - Use memory storage for Vercel
 const storage = multer.memoryStorage();
 const upload = multer({
-<<<<<<< HEAD
     storage: storage,
-=======
-    dest: (process.env.VERCEL || process.env.NODE_ENV === 'production') ? '/tmp' : 'uploads/',
->>>>>>> dcd52a959bdb91ce4340e0498b60e9c8a5d57696
     limits: {
         fileSize: parseInt(process.env.MAX_FILE_SIZE_MB || '10') * 1024 * 1024
     },
