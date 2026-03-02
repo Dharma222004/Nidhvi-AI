@@ -97,7 +97,7 @@ function App() {
           try {
             const j = await response.json();
             errMsg = j.error || errMsg;
-          } catch (_) {}
+          } catch (_) { }
           throw new Error(errMsg);
         }
 
@@ -113,11 +113,11 @@ function App() {
             mode === "clinician"
               ? { clinicalSummary: "" }
               : {
-                  summary: "",
-                  explanation: "",
-                  nextSteps: [],
-                  questionsForDoctor: [],
-                },
+                summary: "",
+                explanation: "",
+                nextSteps: [],
+                questionsForDoctor: [],
+              },
           hospitalSearchParams: null,
           redFlags: [],
           disclaimers: [],
@@ -207,7 +207,7 @@ function App() {
         console.error("Streaming upload error:", err);
         setError(
           err.message ||
-            "Failed to analyze report. Is the server running on port 5000?",
+          "Failed to analyze report. Is the server running on port 5000?",
         );
         setIsLoading(false);
       }
@@ -226,7 +226,8 @@ function App() {
       // Hospital data is now loaded on-demand via button click
 
       try {
-        const response = await axios.post("/api/enhanced/text-analysis", {
+        const serverUrl = process.env.REACT_APP_API_URL || "https://nidhvi-ai.onrender.com";
+        const response = await axios.post(`${serverUrl}/api/enhanced/text-analysis`, {
           text,
           mode,
           language: selectedLanguage,
@@ -243,8 +244,8 @@ function App() {
       } catch (err) {
         setError(
           err.response?.data?.message ||
-            err.message ||
-            "Failed to analyze report",
+          err.message ||
+          "Failed to analyze report",
         );
       } finally {
         setIsLoading(false);

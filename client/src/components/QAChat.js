@@ -95,7 +95,8 @@ function QAChat({ analysisContext, language = 'en' }) {
     setLoading(true);
 
     try {
-      const response = await axios.post('/api/enhanced/ask-doubt', {
+      const serverUrl = process.env.REACT_APP_API_URL || "https://nidhvi-ai.onrender.com";
+      const response = await axios.post(`${serverUrl}/api/enhanced/ask-doubt`, {
         question,
         context: analysisContext,
         language
