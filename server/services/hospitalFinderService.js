@@ -1,10 +1,10 @@
 /**
  * Hospital & Doctor Finder Service
- * Uses Perplexity API to find nearby hospitals and specialists
+ * Uses Gemini API to find nearby hospitals and specialists
  * Returns properly structured data with contact details
  */
 
-const { searchWithPerplexity } = require('./perplexityService');
+const { findHospitalsWithGemini } = require('./geminiService');
 
 /**
  * Extract location from medical report text (smart multi-pass extraction)
@@ -128,7 +128,7 @@ async function findHospitalsAndDoctors(params) {
 
     console.log(`Searching for ${specialistType} near "${location}" for ${condition}`);
 
-    // Build an accurate, precision query for Perplexity
+    // Build an accurate, precision query for Gemini
     const searchQuery = buildHospitalSearchQuery({
         condition,
         specialistType,
@@ -139,14 +139,10 @@ async function findHospitalsAndDoctors(params) {
     });
 
     try {
-        const searchResult = await searchWithPerplexity({
-            query: searchQuery,
-            returnCitations: true,
-            returnImages: false
-        });
+        const searchResult = await findHospitalsWithGemini(searchQuery);
 
         // Parse the structured response
-        const parsedResults = parsePerplexityResponse(searchResult.content, filterType);
+        const parsedResults = parseGeminiResponse(searchResult.content, filterType);
 
         return {
             location: {
@@ -158,42 +154,20 @@ async function findHospitalsAndDoctors(params) {
             citations: searchResult.citations || []
         };
     } catch (error) {
-        console.error('Perplexity search error:', error.message);
+        console.error('Gemini search error:', error.message);
 
-        // Fallback to Gemini if Perplexity fails
-        try {
-            console.log('Falling back to Gemini for hospital search...');
-            const { findHospitalsWithGemini } = require('./geminiService');
-
-            const geminiResult = await findHospitalsWithGemini(searchQuery);
-            const parsedResults = parsePerplexityResponse(geminiResult.content, filterType);
-
-            return {
-                location: {
-                    detected: reportLocation?.detected || false,
-                    used: location
-                },
-                results: parsedResults,
-                specialistType,
-                condition,
-                citations: [],
-                isFallback: true
-            };
-        } catch (geminiError) {
-            console.error('Gemini fallback failed:', geminiError);
-            return {
-                error: `Search failed: ${error.message}. Fallback also failed: ${geminiError.message}`,
-                location: { used: location },
-                results: [],
-                specialistType,
-                condition
-            };
-        }
+        return {
+            error: `Search failed: ${error.message}`,
+            location: { used: location },
+            results: [],
+            specialistType,
+            condition
+        };
     }
 }
 
 /**
- * Build a structured search query for better Perplexity results
+ * Build a structured search query for better Gemini results
  */
 function buildHospitalSearchQuery({ condition, specialistType, location, filterType, pincode, fullAddress }) {
     const hospitalType = filterType === 'govt' ? 'government' :
@@ -234,9 +208,9 @@ List at least 5 hospitals. Start with the most reputed/closest ones. Do NOT inve
 
 
 /**
- * Parse Perplexity response into structured hospital data
+ * Parse Gemini response into structured hospital data
  */
-function parsePerplexityResponse(content, filterType) {
+function parseGeminiResponse(content, filterType) {
     const results = [];
     const governmentHospitals = [];
     const privateHospitals = [];

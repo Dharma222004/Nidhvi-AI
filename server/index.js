@@ -162,13 +162,32 @@ app.use((err, req, res, next) => {
   });
 });
 
-// 404 handler
-app.use((req, res) => {
+// 404 handler for API routes
+app.use('/api/*', (req, res) => {
   res.status(404).json({
     success: false,
     error: 'Endpoint not found'
   });
 });
+
+// Serve frontend in production (Render deployment support)
+if (process.env.NODE_ENV === 'production') {
+  const clientBuildPath = path.join(__dirname, '../client/build');
+  app.use(express.static(clientBuildPath));
+
+  // All unhandled GET requests return the React app
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(clientBuildPath, 'index.html'));
+  });
+} else {
+  // Fallback 404 for non-production non-API routes
+  app.use((req, res) => {
+    res.status(404).json({
+      success: false,
+      error: 'Endpoint not found (API is running)'
+    });
+  });
+}
 
 // Start server
 if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {

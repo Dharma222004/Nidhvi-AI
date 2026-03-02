@@ -3,7 +3,7 @@
  * Analyzes medical results and determines if doctor visit is needed
  */
 
-const { searchWithPerplexity } = require('./perplexityService');
+const { findHospitalsWithGemini } = require('./geminiService');
 const { generateChatCompletion, GROQ_CONFIG } = require('./groqService');
 
 /**
@@ -137,18 +137,10 @@ async function findRelevantHospitalsAndDoctors(params) {
         });
 
         // Search for government hospitals
-        const govtSearch = await searchWithPerplexity({
-            query: searchQuery.government,
-            returnCitations: true,
-            returnImages: false
-        });
+        const govtSearch = await findHospitalsWithGemini(searchQuery.government);
 
         // Search for private hospitals
-        const privateSearch = await searchWithPerplexity({
-            query: searchQuery.private,
-            returnCitations: true,
-            returnImages: false
-        });
+        const privateSearch = await findHospitalsWithGemini(searchQuery.private);
 
         // Parse results
         const govtHospitals = parseHospitalData(govtSearch.content, 'government');
@@ -205,7 +197,7 @@ function buildSmartSearchQuery({ condition, specialistType, location, urgencyLev
 }
 
 /**
- * Parse hospital data from Perplexity response
+ * Parse hospital data from Gemini response
  */
 function parseHospitalData(content, type) {
     const hospitals = [];

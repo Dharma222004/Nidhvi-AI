@@ -19,7 +19,7 @@ const sarvamService = require('./sarvamService');
  *    - Groq llama-3.3-70b-versatile
  * 
  * 3. Hospital/Doctor Finder:
- *    - Perplexity API (web research)
+ *    - Gemini API (hospital search)
  *    - Groq llama-3.1-8b-instant (summarize results)
  * 
  * 4. Translation:
@@ -43,7 +43,7 @@ const MODEL_STRATEGY = {
     ISSUE_IDENTIFICATION: 'groq-llama-70b',
 
     // Hospital/Doctor Finder
-    WEB_RESEARCH: 'perplexity',
+    WEB_RESEARCH: 'gemini',
     RESEARCH_SUMMARIZATION: 'groq-llama-8b',
 
     // Translation
@@ -170,7 +170,7 @@ Provide:
 
 /**
  * Find hospitals and specialist doctors using web research
- * Primary: Perplexity API (best for real-time web research)
+ * Primary: Gemini API (hospital search)
  * Summarization: Groq llama-3.1-8b-instant
  * @param {Object} searchParams - Search parameters (location, specialty, condition)
  * @returns {Promise<Object>} Hospital and doctor recommendations
@@ -178,16 +178,16 @@ Provide:
 async function findHospitalsAndDoctors(searchParams) {
     const { location, specialty, condition } = searchParams;
 
-    // Use Perplexity for web research
-    const perplexityQuery = `Find best hospitals and specialist doctors for ${condition} in ${location}. Include:
+    // Use Gemini for web research
+    const searchQuery = `Find best hospitals and specialist doctors for ${condition} in ${location}. Include:
 - Hospital names and ratings
 - Specialist doctors with qualifications
 - Contact information
 - Patient reviews`;
 
-    // Note: Implement actual Perplexity API call here
+    // Note: Implement actual Gemini API call here
     // For now, using Groq as placeholder
-    const researchResults = await groqService.medicalQA(perplexityQuery);
+    const researchResults = await groqService.medicalQA(searchQuery);
 
     // Summarize results with fast Groq model
     const summary = await groqService.fastChat(
@@ -196,7 +196,7 @@ async function findHospitalsAndDoctors(searchParams) {
 
     return {
         research: {
-            provider: 'perplexity',
+            provider: 'gemini',
             rawResults: researchResults
         },
         summary: {

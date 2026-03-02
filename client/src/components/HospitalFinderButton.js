@@ -7,7 +7,7 @@ import HospitalFinder from './HospitalFinder';
  * HospitalFinderButton Component
  * - Auto-detects location from scan report
  * - Allows user to manually type any city (Chennai, Madurai, etc.)
- * - Uses Perplexity AI for high-accuracy hospital search
+ * - Uses Gemini AI for high-accuracy hospital search
  * - Fully responsive (mobile + desktop)
  */
 function HospitalFinderButton({ analysisData, reportText = '' }) {

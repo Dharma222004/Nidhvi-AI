@@ -390,7 +390,7 @@ Provide your answer:`;
 
 /**
  * POST /api/enhanced/find-hospitals
- * On-demand hospital search using Perplexity API
+ * On-demand hospital search using Gemini API
  * Only called when user clicks "Find Hospitals & Doctors" button
  */
 router.post('/find-hospitals', async (req, res) => {
@@ -415,7 +415,7 @@ router.post('/find-hospitals', async (req, res) => {
         console.log(`Specialist: ${specialistType}`);
         console.log(`Location: ${location || 'To be detected from report'}`);
 
-        // Use the hospital finder service with Perplexity
+        // Use the hospital finder service with Gemini
         const hospitalsData = await findHospitalsAndDoctors({
             condition: condition || 'general health checkup',
             specialistType: specialistType || 'General Physician',
