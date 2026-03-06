@@ -20,7 +20,8 @@ function TranslateButton({ analysisData }) {
     useEffect(() => {
         const fetchLanguages = async () => {
             try {
-                const response = await axios.get('/api/enhanced/languages');
+                const serverUrl = process.env.NODE_ENV === 'development' ? (process.env.REACT_APP_API_URL || 'http://localhost:5000') : '';
+                const response = await axios.get(`${serverUrl}/api/enhanced/languages`);
                 if (response.data.success) {
                     // Filter out English as it's the source language
                     setLanguages(response.data.languages.filter(lang => lang.code !== 'en'));
@@ -56,7 +57,8 @@ function TranslateButton({ analysisData }) {
         try {
             console.log(`Translating to ${language.name}...`);
 
-            const response = await axios.post('/api/enhanced/translate', {
+            const serverUrl = process.env.NODE_ENV === 'development' ? (process.env.REACT_APP_API_URL || 'http://localhost:5000') : '';
+            const response = await axios.post(`${serverUrl}/api/enhanced/translate`, {
                 targetLanguage: language.code,
                 analysisData: analysisData
             });
@@ -85,7 +87,8 @@ function TranslateButton({ analysisData }) {
     const preloadTTS = async (text, langCode) => {
         setIsPreloadingAudio(true);
         try {
-            const response = await axios.post('/api/sarvam/speak', {
+            const serverUrl = process.env.NODE_ENV === 'development' ? (process.env.REACT_APP_API_URL || 'http://localhost:5000') : '';
+            const response = await axios.post(`${serverUrl}/api/sarvam/speak`, {
                 text,
                 targetLanguage: `${langCode}-IN`
             });
@@ -126,7 +129,8 @@ function TranslateButton({ analysisData }) {
             // If not preloaded yet, fetch now
             if (!chunks) {
                 console.log('Audio not preloaded, fetching now...');
-                const response = await axios.post('/api/sarvam/speak', {
+                const serverUrl = process.env.NODE_ENV === 'development' ? (process.env.REACT_APP_API_URL || 'http://localhost:5000') : '';
+                const response = await axios.post(`${serverUrl}/api/sarvam/speak`, {
                     text: translatedContent.content,
                     targetLanguage: `${translatedContent.languageCode}-IN`
                 });
@@ -178,6 +182,37 @@ function TranslateButton({ analysisData }) {
         setSpeaking(false);
         setAudio(null);
         setAudioChunks(null);
+    };
+
+    /**
+     * Utility to parse markdown-like bold (**) and italic (*)
+     */
+    const parseMarkdown = (str) => {
+        if (!str) return null;
+        const parts = [];
+        let currentIndex = 0;
+        // Handle ***bold-italic***, **bold**, *italic*
+        const regex = /(\*\*\*([^*]+)\*\*\*|\*\*([^*]+)\*\*|\*([^*]+)\*)/g;
+        let match;
+
+        while ((match = regex.exec(str)) !== null) {
+            if (match.index > currentIndex) {
+                parts.push(str.substring(currentIndex, match.index));
+            }
+            if (match[2]) { // ***bold-italic***
+                parts.push(<strong key={match.index} className="text-white font-bold italic">{match[2]}</strong>);
+            } else if (match[3]) { // **bold**
+                parts.push(<strong key={match.index} className="text-white font-bold">{match[3]}</strong>);
+            } else if (match[4]) { // *italic*
+                parts.push(<em key={match.index} className="text-purple-100/50 italic">{match[4]}</em>);
+            }
+            currentIndex = match.index + match[0].length;
+        }
+
+        if (currentIndex < str.length) {
+            parts.push(str.substring(currentIndex));
+        }
+        return parts.length > 0 ? parts : str;
     };
 
     const { displayedText, isComplete } = useTypewriter(translatedContent?.content, 20, !!translatedContent);
@@ -303,35 +338,52 @@ function TranslateButton({ analysisData }) {
                         </div>
                         <div className="translated-body">
                             {displayedText.split('\n').map((line, idx) => {
-                                // Handle headings
-                                if (line.startsWith('## ')) {
+                                const trimmedLine = line.trim();
+                                if (!trimmedLine) return <div key={idx} className="h-2" />;
+
+                                // Handle Separator (either --- or AI generated ***)
+                                if (trimmedLine === '---' || trimmedLine === '***') {
+                                    return <hr key={idx} className="translated-separator" />;
+                                }
+
+                                // Handle H2 Headings (## Heading)
+                                const h2Match = trimmedLine.match(/^##\s*(.*)$/);
+                                if (h2Match) {
                                     return (
-                                        <h3 key={idx} className="translated-heading">
-                                            {line.replace('## ', '')}
+                                        <h3 key={idx} className="translated-heading-h2">
+                                            <span className="heading-accent" />
+                                            {parseMarkdown(h2Match[1])}
                                         </h3>
                                     );
                                 }
-                                // Handle list items
-                                if (line.startsWith('- ') || line.match(/^\d+\./)) {
+
+                                // Handle H3 Headings (### Heading)
+                                const h3Match = trimmedLine.match(/^###\s*(.*)$/);
+                                if (h3Match) {
                                     return (
-                                        <p key={idx} className="translated-list-item">
-                                            {line}
-                                        </p>
+                                        <h4 key={idx} className="translated-heading-h3">
+                                            {parseMarkdown(h3Match[1])}
+                                        </h4>
                                     );
                                 }
-                                // Handle separator
-                                if (line.startsWith('---')) {
-                                    return <hr key={idx} className="translated-separator" />;
+
+                                // Handle List Items (- or * or digits)
+                                if (trimmedLine.startsWith('- ') || trimmedLine.startsWith('* ') || trimmedLine.match(/^\d+\./)) {
+                                    const content = trimmedLine.replace(/^[-*]\s+|\d+\.\s*/, '');
+                                    return (
+                                        <div key={idx} className="translated-list-item-wrapper">
+                                            <span className="list-bullet" />
+                                            <p className="translated-list-item-text">{parseMarkdown(content)}</p>
+                                        </div>
+                                    );
                                 }
+
                                 // Regular paragraphs
-                                if (line.trim()) {
-                                    return (
-                                        <p key={idx} className="translated-paragraph">
-                                            {line}
-                                        </p>
-                                    );
-                                }
-                                return null;
+                                return (
+                                    <p key={idx} className="translated-paragraph">
+                                        {parseMarkdown(trimmedLine)}
+                                    </p>
+                                );
                             })}
                             {!isComplete && <span className="typing-cursor">|</span>}
                         </div>
@@ -588,45 +640,79 @@ function TranslateButton({ analysisData }) {
                 }
 
                 .translated-body {
-                    padding: 1.5rem;
+                    padding: 1.5rem 2rem;
                     color: #e2e8f0;
                     line-height: 1.8;
                     font-size: 1.05rem;
                 }
 
-                .translated-heading {
-                    color: #c4b5fd;
-                    font-size: 1.25rem;
-                    font-weight: 600;
-                    margin: 1.5rem 0 0.75rem 0;
+                .translated-heading-h2 {
+                    color: #fff;
+                    font-size: 1.35rem;
+                    font-weight: 700;
+                    margin: 2rem 0 1rem 0;
+                    display: flex;
+                    align-items: center;
+                    gap: 0.75rem;
                 }
 
-                .translated-heading:first-child {
+                .heading-accent {
+                    width: 4px;
+                    height: 1.5rem;
+                    background: linear-gradient(to bottom, #8b5cf6, #06b6d4);
+                    border-radius: 4px;
+                }
+
+                .translated-heading-h3 {
+                    color: #c4b5fd;
+                    font-size: 1.15rem;
+                    font-weight: 600;
+                    margin: 1.5rem 0 0.5rem 0;
+                }
+
+                .translated-heading-h2:first-child,
+                .translated-heading-h3:first-child {
                     margin-top: 0;
                 }
 
                 .translated-paragraph {
-                    margin: 0.75rem 0;
+                    margin: 0.85rem 0;
                     color: #e2e8f0;
+                    opacity: 0.95;
                 }
 
-                .translated-list-item {
-                    margin: 0.5rem 0;
-                    padding-left: 1rem;
+                .translated-list-item-wrapper {
+                    display: flex;
+                    gap: 0.75rem;
+                    margin: 0.6rem 0;
+                    padding-left: 0.5rem;
+                }
+
+                .list-bullet {
+                    width: 6px;
+                    height: 6px;
+                    background: #8b5cf6;
+                    border-radius: 50%;
+                    margin-top: 0.65rem;
+                    flex-shrink: 0;
+                }
+
+                .translated-list-item-text {
                     color: #cbd5e1;
+                    margin: 0;
                 }
 
                 .translated-separator {
                     border: none;
                     border-top: 1px solid rgba(255, 255, 255, 0.1);
-                    margin: 1.5rem 0;
+                    margin: 2rem 0;
                 }
 
                 .typing-cursor {
                     display: inline-block;
                     width: 2px;
                     height: 1.2rem;
-                    background-color: #7c3aed;
+                    background-color: #8b5cf6;
                     margin-left: 2px;
                     animation: blink 1s step-end infinite;
                     vertical-align: middle;

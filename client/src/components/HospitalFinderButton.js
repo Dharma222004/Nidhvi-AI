@@ -44,7 +44,9 @@ function HospitalFinderButton({ analysisData, reportText = '' }) {
         setError(null);
 
         try {
-            const response = await axios.post('/api/enhanced/find-hospitals', {
+            // Always use the configured API URL, fall back to localhost only in development
+            const serverUrl = process.env.REACT_APP_API_URL || (process.env.NODE_ENV === 'development' ? 'http://localhost:5000' : '');
+            const response = await axios.post(`${serverUrl}/api/enhanced/find-hospitals`, {
                 condition,
                 specialistType,
                 severity,

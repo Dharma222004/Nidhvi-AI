@@ -81,9 +81,11 @@ function App() {
         formData.append("mode", mode);
         formData.append("language", selectedLanguage);
 
-        // IMPORTANT: fetch() does NOT go through CRA proxy — use full server URL
-        const serverUrl =
-          process.env.REACT_APP_API_URL || "https://nidhvi-ai.onrender.com";
+        // Use relative path to work with the proxy in development, full URL in production
+        const serverUrl = process.env.REACT_APP_API_URL || (process.env.NODE_ENV === 'development' ? '' : '');
+        if (!serverUrl && process.env.NODE_ENV === 'production') {
+          console.error("REACT_APP_API_URL is missing in production!");
+        }
         const response = await fetch(
           `${serverUrl}/api/enhanced/analyze-stream`,
           {
@@ -206,8 +208,9 @@ function App() {
       } catch (err) {
         console.error("Streaming upload error:", err);
         setError(
-          err.message ||
-          "Failed to analyze report. Is the server running on port 5000?",
+          (err.message === "Failed to fetch" || err.message === "Network Error")
+            ? "Connection failed. Please ensure the backend is running and the API URL is correct in Vercel settings."
+            : err.message || "Failed to analyze report."
         );
         setIsLoading(false);
       }
@@ -226,7 +229,7 @@ function App() {
       // Hospital data is now loaded on-demand via button click
 
       try {
-        const serverUrl = process.env.REACT_APP_API_URL || "https://nidhvi-ai.onrender.com";
+        const serverUrl = process.env.REACT_APP_API_URL || (process.env.NODE_ENV === 'development' ? 'http://localhost:5000' : '');
         const response = await axios.post(`${serverUrl}/api/enhanced/text-analysis`, {
           text,
           mode,

@@ -10,7 +10,7 @@ function HospitalFinder({ hospitalsData, loading }) {
         <div className="loading-content">
           <div className="spinner-ring"></div>
           <h4>Finding Nearby Hospitals & Doctors</h4>
-          <p>Searching with Gemini AI...</p>
+          <p>Analyzing context to find the best care matches...</p>
         </div>
         <style jsx>{styles}</style>
       </div>

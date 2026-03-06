@@ -516,23 +516,23 @@ router.post('/translate', async (req, res) => {
             const explanation = analysisData.explanation || {};
 
             textToTranslate = `
-## Summary
+## What This Report Is About
 ${analysis.summary || explanation.summary || 'No summary available'}
 
-## Key Findings
+## Understanding Your Results
+${explanation.explanation || explanation.whatItMeans || 'No detailed explanation available'}
+
+## What's Normal vs. What Needs Attention
 ${(analysis.keyFindings || []).map(f => `- ${f.finding} (${f.status})`).join('\n') || 'No findings available'}
 
-## What This Means
-${explanation.whatItMeans || explanation.explanation || 'No explanation available'}
-
-## Next Steps
-${(analysis.nextSteps || explanation.nextSteps || []).map((step, i) => `${i + 1}. ${step}`).join('\n') || 'Please consult your doctor'}
+## Clear Next Steps
+${(analysis.nextSteps || explanation.nextSteps || []).map((step, i) => `- ${step}`).join('\n') || 'Please consult your doctor'}
 
 ## Questions to Ask Your Doctor
-${(explanation.questionsForDoctor || []).map((q, i) => `${i + 1}. ${q}`).join('\n') || ''}
+${(explanation.questionsForDoctor || []).map((q, i) => `- ${q}`).join('\n') || ''}
 
----
-Note: This is an AI-generated analysis. Please consult a qualified healthcare professional for medical advice.
+## A Reassuring Closing Message
+Remember: This is an AI-powered explanation. Always check with your doctor before making any medical decisions.
             `.trim();
         }
 
@@ -551,7 +551,7 @@ Note: This is an AI-generated analysis. Please consult a qualified healthcare pr
             reportType: 'medical_analysis'
         });
 
-        console.log(`Translation successful to ${translationResult.targetLanguageName}`);
+        console.log(`Translation successful to ${translationResult.targetLanguageName} `);
 
         res.json({
             success: true,
@@ -603,14 +603,12 @@ router.get('/languages', (req, res) => {
 router.post('/analyze-stream', upload.single('file'), async (req, res) => {
     // SSE headers
     res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
     res.setHeader('Connection', 'keep-alive');
-    res.setHeader('Access-Control-Allow-Origin', process.env.FRONTEND_URL || 'http://localhost:3000');
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.flushHeaders();
 
     const send = (event, data) => {
-        res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+        res.write(`event: ${event} \ndata: ${JSON.stringify(data)} \n\n`);
     };
 
     try {
@@ -632,25 +630,25 @@ router.post('/analyze-stream', upload.single('file'), async (req, res) => {
         send('status', { message: 'Analyzing medical findings...', progress: 30 });
 
         // Step 2: Analyze (Groq)
-        const analysisPrompt = `You are a medical AI assistant. Analyze this medical report data and return ONLY valid JSON.
+        const analysisPrompt = `You are a medical AI assistant.Analyze this medical report data and return ONLY valid JSON.
 
 EXTRACTED DATA:
 ${JSON.stringify(extractedData, null, 2)}
 
 Return JSON with these exact fields:
-{
-  "summary": "2-3 sentence plain language overview",
-  "reportType": "blood_test|radiology|prescription|other",
-  "patientInfo": { "age": "", "gender": "" },
-  "keyFindings": [{ "finding": "", "status": "normal|abnormal|critical", "significance": "low|medium|high" }],
-  "abnormalValues": [{ "parameter": "", "value": "", "normalRange": "", "deviation": "" }],
-  "possibleConditions": [{ "condition": "", "confidence": "low|medium|high", "supportingFindings": [] }],
-  "severity": "low|medium|high|critical",
-  "recommendedSpecialist": "specialist type",
-  "nextSteps": ["step1", "step2"],
-  "questionsForDoctor": ["question1", "question2", "question3"],
-  "disclaimer": "Always consult a qualified healthcare professional."
-}`;
+        {
+            "summary": "2-3 sentence plain language overview",
+                "reportType": "blood_test|radiology|prescription|other",
+                    "patientInfo": { "age": "", "gender": "" },
+            "keyFindings": [{ "finding": "", "status": "normal|abnormal|critical", "significance": "low|medium|high" }],
+                "abnormalValues": [{ "parameter": "", "value": "", "normalRange": "", "deviation": "" }],
+                    "possibleConditions": [{ "condition": "", "confidence": "low|medium|high", "supportingFindings": [] }],
+                        "severity": "low|medium|high|critical",
+                            "recommendedSpecialist": "specialist type",
+                                "nextSteps": ["step1", "step2"],
+                                    "questionsForDoctor": ["question1", "question2", "question3"],
+                                        "disclaimer": "Always consult a qualified healthcare professional."
+        } `;
 
         const analysisResponse = await generateChatCompletion({
             messages: [
@@ -669,7 +667,7 @@ Return JSON with these exact fields:
         const { extractLocationFromReport } = require('../services/hospitalFinderService');
         const detectedLoc = extractLocationFromReport(extractedData.rawText || '');
         const detectedLocationStr = detectedLoc
-            ? (detectedLoc.fullAddress || detectedLoc.city || (detectedLoc.pincode ? `Pincode ${detectedLoc.pincode}` : null))
+            ? (detectedLoc.fullAddress || detectedLoc.city || (detectedLoc.pincode ? `Pincode ${detectedLoc.pincode} ` : null))
             : null;
 
         const hospitalSearchParams = {

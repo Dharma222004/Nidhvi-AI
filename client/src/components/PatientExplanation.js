@@ -18,22 +18,28 @@ function FormattedText({ text, className = '', showCursor = false }) {
     if (!text) return null;
 
     const parseMarkdown = (str) => {
+        if (!str) return null;
         const parts = [];
         let currentIndex = 0;
-        const regex = /(\*\*([^*]+)\*\*|\*([^*]+)\*)/g;
+        // Robust regex to handle triple asterisks (bold-italic), double (bold), and single (italic)
+        const regex = /(\*\*\*([^*]+)\*\*\*|\*\*([^*]+)\*\*|\*([^*]+)\*)/g;
         let match;
 
         while ((match = regex.exec(str)) !== null) {
             if (match.index > currentIndex) {
                 parts.push(str.substring(currentIndex, match.index));
             }
-            if (match[2]) {
-                parts.push(<strong key={match.index} className="text-white font-semibold">{match[2]}</strong>);
-            } else if (match[3]) {
-                parts.push(<em key={match.index} className="text-purple-200">{match[3]}</em>);
+
+            if (match[2]) { // ***bold-italic***
+                parts.push(<strong key={match.index} className="text-white font-bold italic">{match[2]}</strong>);
+            } else if (match[3]) { // **bold**
+                parts.push(<strong key={match.index} className="text-white font-bold">{match[3]}</strong>);
+            } else if (match[4]) { // *italic*
+                parts.push(<em key={match.index} className="text-purple-200 italic">{match[4]}</em>);
             }
             currentIndex = match.index + match[0].length;
         }
+
         if (currentIndex < str.length) {
             parts.push(str.substring(currentIndex));
         }
@@ -43,22 +49,58 @@ function FormattedText({ text, className = '', showCursor = false }) {
     const paragraphs = text.split(/\n\n+/);
 
     return (
-        <div className={`formatted-text ${className}`}>
+        <div className={`formatted-text ${className} space-y-4`}>
             {paragraphs.map((paragraph, pIndex) => {
                 const lines = paragraph.split('\n');
                 return (
-                    <div key={pIndex} className={pIndex > 0 ? 'mt-4' : ''}>
+                    <div key={pIndex} className="paragraph-block">
                         {lines.map((line, lIndex) => {
                             const trimmedLine = line.trim();
                             if (!trimmedLine) return null;
+
+                            // Handle H2 Headers (## Section Name)
+                            const h2Match = trimmedLine.match(/^##\s+(.*)$/) || trimmedLine.match(/^##([^#\s].*)$/);
+                            if (h2Match) {
+                                return (
+                                    <h3 key={lIndex} className="text-xl font-bold text-white mt-8 mb-4 pb-2 border-b border-purple-500/20 flex items-center gap-3">
+                                        <span className="w-1.5 h-6 rounded-full bg-gradient-to-b from-purple-400 to-cyan-400" />
+                                        {parseMarkdown(h2Match[1])}
+                                    </h3>
+                                );
+                            }
+
+                            // Handle H3 Headers (### Section Name)
+                            const h3Match = trimmedLine.match(/^###\s+(.*)$/) || trimmedLine.match(/^###([^#\s].*)$/);
+                            if (h3Match) {
+                                return (
+                                    <h4 key={lIndex} className="text-lg font-semibold text-purple-300 mt-6 mb-3 flex items-center gap-2">
+                                        <span className="w-2 h-2 rounded-full bg-purple-500/50" />
+                                        {parseMarkdown(h3Match[1])}
+                                    </h4>
+                                );
+                            }
+
+                            // Handle List Items (- item or * item)
+                            if (trimmedLine.startsWith('- ') || trimmedLine.startsWith('* ')) {
+                                return (
+                                    <div key={lIndex} className="flex items-start gap-3 ml-4 my-2">
+                                        <span className="mt-2 w-1.5 h-1.5 rounded-full bg-cyan-400/60 flex-shrink-0" />
+                                        <p className="text-purple-100/80 leading-relaxed">
+                                            {parseMarkdown(trimmedLine.substring(2))}
+                                        </p>
+                                    </div>
+                                );
+                            }
+
+                            // Existing bold header match (**Header**: Content)
                             const headerMatch = trimmedLine.match(/^\*\*([^*]+)\*\*:?\s*(.*)$/);
                             if (headerMatch) {
                                 return (
-                                    <div key={lIndex} className={lIndex > 0 ? 'mt-4' : ''}>
-                                        <h4 className="text-purple-300 font-semibold text-base mb-2 flex items-center gap-2">
-                                            <span className="w-2 h-2 rounded-full bg-gradient-to-r from-purple-400 to-cyan-400" />
+                                    <div key={lIndex} className="mt-4 first:mt-0">
+                                        <h5 className="text-purple-300 font-bold text-base mb-2 flex items-center gap-2">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-gradient-to-r from-purple-400 to-cyan-400" />
                                             {headerMatch[1]}
-                                        </h4>
+                                        </h5>
                                         {headerMatch[2] && (
                                             <p className="text-purple-100/80 leading-relaxed pl-4 border-l-2 border-purple-500/20">
                                                 {parseMarkdown(headerMatch[2])}
@@ -67,8 +109,9 @@ function FormattedText({ text, className = '', showCursor = false }) {
                                     </div>
                                 );
                             }
+
                             return (
-                                <p key={lIndex} className={`text-purple-100/80 leading-relaxed ${lIndex > 0 ? 'mt-2' : ''}`}>
+                                <p key={lIndex} className="text-purple-100/80 leading-relaxed my-2">
                                     {parseMarkdown(trimmedLine)}
                                 </p>
                             );

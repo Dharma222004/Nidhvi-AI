@@ -7,7 +7,7 @@
 
 // API Base URL
 const API_BASE_URL =
-  process.env.REACT_APP_API_URL || "https://nidhvi-ai.onrender.com";
+  process.env.REACT_APP_API_URL || (process.env.NODE_ENV === 'development' ? 'http://localhost:5000' : '');
 
 /**
  * 1. Fast OCR Analysis using gemma-3-4b

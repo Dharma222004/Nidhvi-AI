@@ -3,6 +3,7 @@ server/.env
 .env
 .env.local
 .env.*
+dd
 !.env.example
 !server/.env.example
 

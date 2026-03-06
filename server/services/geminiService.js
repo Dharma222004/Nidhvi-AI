@@ -528,15 +528,26 @@ async function generatePatientExplanationStream(extractedData, onChunk) {
 REPORT DATA:
 ${JSON.stringify(extractedData, null, 2)}
 
-Write a thorough plain-English explanation covering:
-1. What this report is about (2-3 sentences)
-2. What your key findings are and what they mean in everyday terms
-3. What is normal vs. what needs attention
-4. Clear next steps to take
-5. 3-5 questions to ask your doctor
-6. A brief reassuring closing message
+Write a thorough plain-English explanation covering exactly these sections with these headers:
+## What This Report Is About
+(2-3 sentences explaining the purpose of the study)
 
-Write in flowing paragraphs (no JSON). Use simple language a 10-year-old could understand. Be warm and caring.`;
+## Understanding Your Results
+(Explain the findings in everyday terms, what each part means)
+
+## What's Normal vs. What Needs Attention
+(Clearly distinguish between healthy results and those that require follow-up)
+
+## Clear Next Steps
+(List 3 actionable steps the patient should take now)
+
+## Questions to Ask Your Doctor
+(List 3-5 specific questions about this report)
+
+## A Reassuring Closing Message
+(A brief supportive message to finish)
+
+Write in flowing paragraphs. Use simple language a 10-year-old could understand. Be warm and caring. Do NOT use JSON. Use only the ## headers above.`;
 
   try {
     const result = await model.generateContentStream(prompt);

@@ -52,11 +52,12 @@ app.use("/api/", limiter);
 // CORS configuration - Robust handling for multiple environments
 const allowedOrigins = [
   "http://localhost:3000",
+  "http://127.0.0.1:3000",
   "https://nidhvi-ai.vercel.app",
   "http://nidhvi-ai.vercel.app",
-  "nidhvi-ai.vercel.app", // Handle cases where protocol might be stripped
+  "nidhvi-ai.vercel.app",
   process.env.FRONTEND_URL,
-].filter(Boolean);
+].filter(Boolean).map(origin => origin.replace(/\/$/, "")); // Pre-normalize
 
 app.use(
   cors({
@@ -64,31 +65,28 @@ app.use(
       // Allow requests with no origin (like mobile apps or curl)
       if (!origin) return callback(null, true);
 
-      // Check if origin is allowed
+      const normalizedOrigin = origin.replace(/\/$/, "");
+
       const isAllowed = allowedOrigins.some((allowed) => {
-        if (!allowed) return false;
-        const normalizedAllowed = allowed.replace(/\/$/, "");
-        const normalizedOrigin = origin.replace(/\/$/, "");
         return (
-          normalizedAllowed === normalizedOrigin ||
-          normalizedAllowed === normalizedOrigin.replace(/^https?:\/\//, "") ||
-          normalizedOrigin === `https://${normalizedAllowed}` ||
-          normalizedOrigin === `http://${normalizedAllowed}`
+          allowed === normalizedOrigin ||
+          allowed === normalizedOrigin.replace(/^https?:\/\//, "") ||
+          `https://${allowed}` === normalizedOrigin ||
+          `http://${allowed}` === normalizedOrigin
         );
       });
 
       if (isAllowed) {
         callback(null, true);
       } else {
-        console.warn(
-          `CORS blocked for origin: ${origin}. Allowed origins: ${allowedOrigins.join(", ")}`,
-        );
-        callback(new Error("Not allowed by CORS"));
+        console.error(`[CORS REJECTED] Origin: ${origin}`);
+        console.log(`[CORS] Allowed Origins:`, allowedOrigins);
+        callback(new Error(`Not allowed by CORS: ${origin}`));
       }
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "Accept"],
+    allowedHeaders: ["Content-Type", "Authorization", "Accept", "X-Requested-With"],
   }),
 );
 
@@ -120,6 +118,8 @@ app.get("/", (req, res) => {
       health: "/api/health",
       oxlo: "/api/oxlo",
       groq: "/api/groq",
+      enhanced: "/api/enhanced", // Added missing endpoint list
+      sarvam: "/api/sarvam"
     },
     documentation: "/api/docs",
   });
