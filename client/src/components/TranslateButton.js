@@ -3,19 +3,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import { useTypewriter } from '../hooks/useTypewriter';
 
-const DEFAULT_TRANSLATE_LANGUAGES = [
-    { code: 'hi', name: 'Hindi', nativeName: 'हिन्दी' },
-    { code: 'ta', name: 'Tamil', nativeName: 'தமிழ்' },
-    { code: 'te', name: 'Telugu', nativeName: 'తెలుగు' },
-    { code: 'bn', name: 'Bengali', nativeName: 'বাংলা' },
-    { code: 'mr', name: 'Marathi', nativeName: 'मराठी' },
-    { code: 'gu', name: 'Gujarati', nativeName: 'ગુજરાતી' },
-    { code: 'kn', name: 'Kannada', nativeName: 'ಕನ್ನಡ' },
-    { code: 'ml', name: 'Malayalam', nativeName: 'മലയാളം' },
-    { code: 'pa', name: 'Punjabi', nativeName: 'ਪੰਜਾਬੀ' },
-    { code: 'ur', name: 'Urdu', nativeName: 'اردو' }
-];
-
 /**
  * TranslateButton Component
  * Allows users to translate analysis results to their preferred language
@@ -23,7 +10,7 @@ const DEFAULT_TRANSLATE_LANGUAGES = [
  */
 function TranslateButton({ analysisData }) {
     const [showLanguageMenu, setShowLanguageMenu] = useState(false);
-    const [languages, setLanguages] = useState(DEFAULT_TRANSLATE_LANGUAGES);
+    const [languages, setLanguages] = useState([]);
     const [selectedLanguage, setSelectedLanguage] = useState(null);
     const [translatedContent, setTranslatedContent] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -31,25 +18,29 @@ function TranslateButton({ analysisData }) {
 
     // Fetch available languages on mount
     useEffect(() => {
-        let isMounted = true;
         const fetchLanguages = async () => {
             try {
-                const serverUrl = process.env.NODE_ENV === 'development' ? (process.env.REACT_APP_API_URL || 'http://localhost:5000') : '';
-                const response = await axios.get(`${serverUrl}/api/enhanced/languages`, { timeout: 8000 });
-                if (isMounted && response?.data?.success && Array.isArray(response.data.languages)) {
+                const serverUrl = process.env.REACT_APP_API_URL || (process.env.NODE_ENV === 'development' ? 'http://localhost:5000' : '');
+                const response = await axios.get(`${serverUrl}/api/enhanced/languages`);
+                if (response.data.success) {
                     // Filter out English as it's the source language
-                    const filtered = response.data.languages.filter(lang => lang.code !== 'en');
-                    if (filtered.length > 0) {
-                        setLanguages(filtered);
-                    }
+                    setLanguages(response.data.languages.filter(lang => lang.code !== 'en'));
                 }
             } catch (err) {
-                // Keep default languages silently - do not crash or spam
-                console.warn('Using default translation languages fallback.');
+                console.error('Failed to fetch languages:', err);
+                // Fallback languages
+                setLanguages([
+                    { code: 'hi', name: 'Hindi', nativeName: 'हिन्दी' },
+                    { code: 'ta', name: 'Tamil', nativeName: 'தமிழ்' },
+                    { code: 'te', name: 'Telugu', nativeName: 'తెలుగు' },
+                    { code: 'bn', name: 'Bengali', nativeName: 'বাংলা' },
+                    { code: 'mr', name: 'Marathi', nativeName: 'मराठी' },
+                    { code: 'kn', name: 'Kannada', nativeName: 'ಕನ್ನಡ' },
+                    { code: 'ml', name: 'Malayalam', nativeName: 'മലയാളം' }
+                ]);
             }
         };
         fetchLanguages();
-        return () => { isMounted = false; };
     }, []);
 
     const [audioChunks, setAudioChunks] = useState(null);
@@ -66,7 +57,7 @@ function TranslateButton({ analysisData }) {
         try {
             console.log(`Translating to ${language.name}...`);
 
-            const serverUrl = process.env.NODE_ENV === 'development' ? (process.env.REACT_APP_API_URL || 'http://localhost:5000') : '';
+            const serverUrl = process.env.REACT_APP_API_URL || (process.env.NODE_ENV === 'development' ? 'http://localhost:5000' : '');
             const response = await axios.post(`${serverUrl}/api/enhanced/translate`, {
                 targetLanguage: language.code,
                 analysisData: analysisData
@@ -96,7 +87,7 @@ function TranslateButton({ analysisData }) {
     const preloadTTS = async (text, langCode) => {
         setIsPreloadingAudio(true);
         try {
-            const serverUrl = process.env.NODE_ENV === 'development' ? (process.env.REACT_APP_API_URL || 'http://localhost:5000') : '';
+            const serverUrl = process.env.REACT_APP_API_URL || (process.env.NODE_ENV === 'development' ? 'http://localhost:5000' : '');
             const response = await axios.post(`${serverUrl}/api/sarvam/speak`, {
                 text,
                 targetLanguage: `${langCode}-IN`
@@ -138,7 +129,7 @@ function TranslateButton({ analysisData }) {
             // If not preloaded yet, fetch now
             if (!chunks) {
                 console.log('Audio not preloaded, fetching now...');
-                const serverUrl = process.env.NODE_ENV === 'development' ? (process.env.REACT_APP_API_URL || 'http://localhost:5000') : '';
+                const serverUrl = process.env.REACT_APP_API_URL || (process.env.NODE_ENV === 'development' ? 'http://localhost:5000' : '');
                 const response = await axios.post(`${serverUrl}/api/sarvam/speak`, {
                     text: translatedContent.content,
                     targetLanguage: `${translatedContent.languageCode}-IN`
