@@ -14,7 +14,7 @@ const BASE_URL = process.env.SARVAM_API_URL || 'https://api.sarvam.ai';
 
 // Constants for limits
 const LIMITS = {
-    TRANSLATE: 1800, // Safe limit for Sarvam v1 (2000 actual)
+    TRANSLATE: 800,  // Safe limit for Sarvam mayura:v1 (must not exceed 1000)
     TTS: 2000        // Safe limit for Bulbul v3 (2500 actual)
 };
 
@@ -65,7 +65,7 @@ async function translate(input, sourceLanguageCode, targetLanguageCode) {
 
     try {
         const translationPromises = chunks.map(async (chunk) => {
-            const response = await axios.post(`${BASE_URL}/text-to-text/translate/v1`, {
+            const response = await axios.post(`${BASE_URL}/translate`, {
                 input: chunk,
                 source_language_code: sourceLanguageCode,
                 target_language_code: targetLanguageCode,

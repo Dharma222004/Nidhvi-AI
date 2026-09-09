@@ -202,7 +202,7 @@ function ClinicianExplanation({ explanation }) {
                 )}
             </div>
 
-            <style jsx>{`
+            <style>{`
                 .typing-cursor {
                     display: inline-block;
                     width: 2px;

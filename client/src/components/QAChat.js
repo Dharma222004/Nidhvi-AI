@@ -111,9 +111,13 @@ function QAChat({ analysisContext, language = 'en' }) {
       setMessages(prev => [...prev, aiMessage]);
     } catch (error) {
       console.error('Q&A error:', error);
+      const errorDetail = error.response?.data?.message || error.message || '';
       const errorMessage = {
         role: 'error',
-        content: 'Sorry, I couldn\'t process your question. Please try again.',
+        content: errorDetail && errorDetail.length < 100
+          ? `Sorry, I couldn't process your question (${errorDetail}). Please try again.`
+          : 'Sorry, I couldn\'t process your question. Please try again.',
+        failedQuestion: question,
         timestamp: new Date()
       };
       setMessages(prev => [...prev, errorMessage]);
@@ -203,6 +207,16 @@ function QAChat({ analysisContext, language = 'en' }) {
               </div>
               <div className="message-content">
                 <div className="message-text">{msg.content}</div>
+                {msg.role === 'error' && msg.failedQuestion && (
+                  <button
+                    type="button"
+                    className="retry-btn"
+                    onClick={() => askQuestion(msg.failedQuestion)}
+                    disabled={loading}
+                  >
+                    <span>🔄</span> Try Again
+                  </button>
+                )}
                 <div className="message-time">
                   {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </div>
@@ -286,7 +300,7 @@ function QAChat({ analysisContext, language = 'en' }) {
         </motion.button>
       </form>
 
-      <style jsx>{`
+      <style>{`
                 .qa-container {
                     background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
                     border-radius: 20px;
@@ -483,6 +497,26 @@ function QAChat({ analysisContext, language = 'en' }) {
                     background: rgba(239, 68, 68, 0.15);
                     color: #fca5a5;
                     border: 1px solid rgba(239, 68, 68, 0.3);
+                }
+
+                .retry-btn {
+                    margin-top: 8px;
+                    padding: 6px 12px;
+                    border-radius: 8px;
+                    background: rgba(239, 68, 68, 0.2);
+                    border: 1px solid rgba(239, 68, 68, 0.4);
+                    color: #fee2e2;
+                    font-size: 0.8rem;
+                    cursor: pointer;
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 6px;
+                    transition: all 0.2s;
+                }
+
+                .retry-btn:hover {
+                    background: rgba(239, 68, 68, 0.35);
+                    transform: translateY(-1px);
                 }
 
                 .message-time {

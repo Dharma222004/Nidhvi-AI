@@ -113,7 +113,7 @@ function VoiceInput({ onTranscript, disabled, language = 'en' }) {
                 </motion.div>
             )}
 
-            <style jsx>{`
+            <style>{`
         .voice-input {
           display: flex;
           flex-direction: column;

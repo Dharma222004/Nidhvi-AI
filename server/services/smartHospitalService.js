@@ -3,6 +3,7 @@
  * Analyzes medical results and determines if doctor visit is needed
  */
 
+const { searchWithTavily } = require('./tavilyService');
 const { findHospitalsWithGemini } = require('./geminiService');
 const { generateChatCompletion, GROQ_CONFIG } = require('./groqService');
 
@@ -136,11 +137,21 @@ async function findRelevantHospitalsAndDoctors(params) {
             urgencyLevel: doctorNeeded.urgencyLevel
         });
 
-        // Search for government hospitals
-        const govtSearch = await findHospitalsWithGemini(searchQuery.government);
+        // Search for government hospitals (Tavily with Gemini fallback)
+        let govtSearch;
+        try {
+            govtSearch = await searchWithTavily({ query: searchQuery.government });
+        } catch (err) {
+            govtSearch = await findHospitalsWithGemini(searchQuery.government);
+        }
 
-        // Search for private hospitals
-        const privateSearch = await findHospitalsWithGemini(searchQuery.private);
+        // Search for private hospitals (Tavily with Gemini fallback)
+        let privateSearch;
+        try {
+            privateSearch = await searchWithTavily({ query: searchQuery.private });
+        } catch (err) {
+            privateSearch = await findHospitalsWithGemini(searchQuery.private);
+        }
 
         // Parse results
         const govtHospitals = parseHospitalData(govtSearch.content, 'government');

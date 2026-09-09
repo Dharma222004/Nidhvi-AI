@@ -3,7 +3,7 @@
  * Uses Groq's llama-3.3-70b-versatile for high-quality translation
  */
 
-const { generateChatCompletion } = require('./groqService');
+const { generateChatCompletion, GROQ_CONFIG } = require('./groqService');
 const sarvamService = require('./sarvamService');
 
 // Supported languages
@@ -38,13 +38,19 @@ const SARVAM_LANG_MAP = {
 /**
  * Translate medical report to target language
  */
-async function translateReport(params) {
-    const {
-        content,
-        sourceLanguage = 'en',
-        targetLanguage,
-        reportType = 'medical_analysis'
-    } = params;
+async function translateReport(params, targetLangArg, sourceLangArg) {
+    let content, sourceLanguage = 'en', targetLanguage, reportType = 'medical_analysis';
+
+    if (typeof params === 'object' && params !== null && !Array.isArray(params)) {
+        content = params.content;
+        sourceLanguage = params.sourceLanguage || 'en';
+        targetLanguage = params.targetLanguage;
+        reportType = params.reportType || 'medical_analysis';
+    } else {
+        content = params;
+        targetLanguage = targetLangArg;
+        sourceLanguage = sourceLangArg || 'en';
+    }
 
     if (!targetLanguage || targetLanguage === 'en') {
         return {
@@ -57,7 +63,7 @@ async function translateReport(params) {
 
     const targetLangName = SUPPORTED_LANGUAGES[targetLanguage] || targetLanguage;
 
-    // Use Sarvam if configured and target language is supported
+    // 1. Primary: Use Sarvam AI if configured and target language is supported
     if (sarvamService.isConfigured() && SARVAM_LANG_MAP[targetLanguage]) {
         try {
             console.log(`Using Sarvam AI for translation to ${targetLangName}...`);
@@ -95,35 +101,43 @@ ${content}
 
 Provide ONLY the translated content. Do not add any notes or explanations.`;
 
-    try {
-        const response = await generateChatCompletion({
-            messages: [
-                {
-                    role: 'system',
-                    content: 'You are a professional medical translator specializing in Indian languages. You maintain medical accuracy while ensuring cultural appropriateness.'
-                },
-                {
-                    role: 'user',
-                    content: prompt
-                }
-            ],
-            model: 'llama-3.3-70b-versatile',
-            temperature: 0.3,
-            maxTokens: 4000
-        });
+    // 2. Secondary: Groq with configured chat model, then fallback to fast instant model
+    const candidateModels = [GROQ_CONFIG.models.chat, 'llama-3.1-8b-instant', 'llama-3.3-70b-versatile'].filter(Boolean);
+    let lastGroqError = null;
 
-        return {
-            translatedContent: response.content,
-            sourceLanguage,
-            targetLanguage,
-            targetLanguageName: targetLangName,
-            success: true,
-            provider: 'groq'
-        };
-    } catch (error) {
-        console.error('Translation error:', error);
-        throw new Error(`Failed to translate to ${targetLangName}: ${error.message}`);
+    for (const modelToTry of candidateModels) {
+        try {
+            const response = await generateChatCompletion({
+                messages: [
+                    {
+                        role: 'system',
+                        content: 'You are a professional medical translator specializing in Indian languages. You maintain medical accuracy while ensuring cultural appropriateness.'
+                    },
+                    {
+                        role: 'user',
+                        content: prompt
+                    }
+                ],
+                model: modelToTry,
+                temperature: 0.3,
+                maxTokens: 4000
+            });
+
+            return {
+                translatedContent: response.content,
+                sourceLanguage,
+                targetLanguage,
+                targetLanguageName: targetLangName,
+                success: true,
+                provider: `groq-${modelToTry}`
+            };
+        } catch (error) {
+            console.warn(`Groq translation with [${modelToTry}] failed:`, error.message);
+            lastGroqError = error;
+        }
     }
+
+    throw new Error(`Failed to translate to ${targetLangName}: ${lastGroqError?.message || 'All providers failed'}`);
 }
 
 /**
@@ -152,7 +166,7 @@ Provide ONLY the translation,no explanations.`;
     try {
         const response = await generateChatCompletion({
             messages: [{ role: 'user', content: prompt }],
-            model: 'llama-3.1-8b-instant', // Faster for simple translations
+            model: GROQ_CONFIG.models.fastChat || 'openai/gpt-oss-20b', // Fast model for simple translations
             temperature: 0.2,
             maxTokens: 200
         });

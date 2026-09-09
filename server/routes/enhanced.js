@@ -10,8 +10,8 @@ const path = require('path');
 const fs = require('fs');
 
 // Services
-const { extractFromImage, extractFromText, generatePatientExplanation } = require('../services/geminiService');
-const { generateChatCompletion } = require('../services/groqService');
+const { extractFromImage, extractFromText, generatePatientExplanation, answerQuestionWithGemini } = require('../services/geminiService');
+const { generateChatCompletion, GROQ_CONFIG } = require('../services/groqService');
 const { findHospitalsAndDoctors } = require('../services/hospitalFinderService');
 const { translateReport } = require('../services/translationService');
 const { getStandardDisclaimers, detectRedFlags } = require('../services/safetyService');
@@ -117,7 +117,7 @@ IMPORTANT: Return ONLY valid JSON. Be medically accurate but patient-friendly.`;
                     content: analysisPrompt
                 }
             ],
-            model: 'llama-3.3-70b-versatile',
+            model: GROQ_CONFIG.models.chat,
             temperature: 0.2,
             maxTokens: 3000,
             responseFormat: { type: 'json_object' }
@@ -126,7 +126,7 @@ IMPORTANT: Return ONLY valid JSON. Be medically accurate but patient-friendly.`;
         const analysis = JSON.parse(analysisResponse.content);
 
         // Step 3: Prepare hospital recommendation data (NO auto-search)
-        // Hospital search is ON-DEMAND only - user clicks button to trigger Perplexity
+        // Hospital search is ON-DEMAND only - user clicks button to trigger Tavily web search
         console.log('Step 3: Preparing hospital recommendation metadata...');
 
         const hospitalSearchParams = {
@@ -270,7 +270,7 @@ Provide analysis in JSON format with summary, findings, conditions, specialist r
 
         const analysisResponse = await generateChatCompletion({
             messages: [{ role: 'user', content: analysisPrompt }],
-            model: 'llama-3.3-70b-versatile',
+            model: GROQ_CONFIG.models.chat,
             temperature: 0.2,
             responseFormat: { type: 'json_object' }
         });
@@ -331,51 +331,130 @@ router.post('/ask-doubt', async (req, res) => {
     try {
         const { question, context, language = 'en' } = req.body;
 
-        if (!question) {
+        if (!question || typeof question !== 'string' || !question.trim()) {
             return res.status(400).json({
                 success: false,
                 error: 'No question provided'
             });
         }
 
-        const prompt = `You are a helpful medical AI assistant. Answer the patient's question based ONLY on the medical report context provided.
+        // Sanitize and condense context to avoid token bloat and circular refs
+        const cleanContext = {
+            summary: context?.summary || context?.explanation?.summary || 'Medical analysis report',
+            reportType: context?.reportType || 'Medical Diagnostic Report',
+            patientInfo: context?.patientInfo || {},
+            keyFindings: Array.isArray(context?.keyFindings) ? context.keyFindings.slice(0, 8) : [],
+            abnormalValues: Array.isArray(context?.abnormalValues) ? context.abnormalValues.slice(0, 8) : [],
+            possibleConditions: Array.isArray(context?.possibleConditions) ? context.possibleConditions.slice(0, 5) : [],
+            severity: context?.severity || 'normal',
+            recommendedSpecialist: context?.recommendedSpecialist || 'General Physician',
+            nextSteps: Array.isArray(context?.nextSteps) ? context.nextSteps.slice(0, 5) : []
+        };
+
+        if (context?.extractedText && typeof context.extractedText === 'string') {
+            cleanContext.reportSnippet = context.extractedText.substring(0, 1200);
+        }
+
+        const langMap = {
+            en: 'English',
+            hi: 'Hindi',
+            ta: 'Tamil',
+            te: 'Telugu',
+            bn: 'Bengali',
+            mr: 'Marathi',
+            gu: 'Gujarati',
+            kn: 'Kannada',
+            ml: 'Malayalam',
+            es: 'Spanish',
+            fr: 'French'
+        };
+        const langName = langMap[language] || language || 'English';
+
+        const prompt = `You are a compassionate, medically knowledgeable AI assistant. Answer the patient's question based on the medical report context provided.
 
 MEDICAL REPORT CONTEXT:
-${JSON.stringify(context, null, 2)}
+${JSON.stringify(cleanContext, null, 2)}
 
 PATIENT'S QUESTION:
 ${question}
 
 GUIDELINES:
-- Answer based only on the report context
-- Be clear, simple, and reassuring
-- If the question is outside the report scope, politely say so
-- Always remind them to consult their doctor
-- Keep answer under 150 words
+- Answer directly, clearly, simply, and reassuringly.
+- Language: Respond in ${langName}.
+- Keep your answer under 150 words.
+- Always include a gentle note reminding the patient to consult their doctor for personalized medical evaluation.
 
 Provide your answer:`;
 
-        const response = await generateChatCompletion({
-            messages: [
-                {
-                    role: 'system',
-                    content: 'You are a helpful medical assistant. Provide safe, context-based answers to patient questions.'
-                },
-                {
-                    role: 'user',
-                    content: prompt
+        let answer = '';
+        let provider = 'groq';
+
+        // Tier 1: Try Groq fastChat (openai/gpt-oss-20b)
+        try {
+            const response = await generateChatCompletion({
+                messages: [
+                    {
+                        role: 'system',
+                        content: `You are a helpful medical assistant. Provide safe, context-based answers to patient questions. Respond in ${langName}.`
+                    },
+                    {
+                        role: 'user',
+                        content: prompt
+                    }
+                ],
+                model: GROQ_CONFIG.models.fastChat || 'openai/gpt-oss-20b',
+                temperature: 0.3,
+                maxTokens: 400
+            });
+            if (response && response.content) {
+                answer = response.content;
+            }
+        } catch (groqFastErr) {
+            console.warn('Groq fastChat failed, trying Groq chat (openai/gpt-oss-120b):', groqFastErr.message);
+            // Tier 2: Try Groq chat (openai/gpt-oss-120b)
+            try {
+                const response120b = await generateChatCompletion({
+                    messages: [
+                        {
+                            role: 'system',
+                            content: `You are a helpful medical assistant. Provide safe, context-based answers to patient questions. Respond in ${langName}.`
+                        },
+                        {
+                            role: 'user',
+                            content: prompt
+                        }
+                    ],
+                    model: GROQ_CONFIG.models.chat || 'openai/gpt-oss-120b',
+                    temperature: 0.3,
+                    maxTokens: 400
+                });
+                if (response120b && response120b.content) {
+                    answer = response120b.content;
                 }
-            ],
-            model: 'llama-3.1-8b-instant', // Use fast model for Q&A
-            temperature: 0.3,
-            maxTokens: 300
-        });
+            } catch (groqChatErr) {
+                console.warn('Groq chat fallback failed, trying Gemini:', groqChatErr.message);
+                // Tier 3: Try Gemini
+                try {
+                    provider = 'gemini';
+                    answer = await answerQuestionWithGemini(prompt);
+                } catch (geminiErr) {
+                    console.error('All AI models failed for ask-doubt, synthesizing safe summary:', geminiErr.message);
+                    provider = 'safe-fallback';
+                    // Tier 4: Graceful synthesized fallback from clean context
+                    const abnormalText = cleanContext.abnormalValues.length > 0
+                        ? `Abnormal values observed: ${cleanContext.abnormalValues.map(a => `${a.parameter || ''}: ${a.value || ''}`).join(', ')}.`
+                        : 'No critical abnormal markers were highlighted.';
+                    answer = `Based on your report: ${cleanContext.summary}. ${abnormalText} We recommend scheduling a follow-up with a ${cleanContext.recommendedSpecialist || 'qualified physician'} to discuss these findings in detail.`;
+                }
+            }
+        }
 
         res.json({
             success: true,
             question,
-            answer: response.content,
-            language
+            answer: answer.trim(),
+            language,
+            provider
         });
 
     } catch (error) {
@@ -655,7 +734,7 @@ Return JSON with these exact fields:
                 { role: 'system', content: 'You are a medical AI assistant. Return ONLY valid JSON, no markdown.' },
                 { role: 'user', content: analysisPrompt }
             ],
-            model: 'llama-3.3-70b-versatile',
+            model: GROQ_CONFIG.models.chat,
             temperature: 0.1,
             maxTokens: 3000,
             responseFormat: { type: 'json_object' }

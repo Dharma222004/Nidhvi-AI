@@ -647,7 +647,7 @@ function DownloadReport({ reportData, language = "en", fileName = "", showPrevie
         </AnimatePresence>
       )}
 
-      <style jsx>{`
+      <style>{`
         .download-report-wrapper {
           display: flex;
           flex-direction: column;

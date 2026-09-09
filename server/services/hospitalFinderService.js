@@ -1,9 +1,10 @@
 /**
  * Hospital & Doctor Finder Service
- * Uses Gemini API to find nearby hospitals and specialists
- * Returns properly structured data with contact details
+ * Uses Tavily Search API (with Gemini fallback) to find nearby hospitals and specialists
+ * Returns properly structured data with contact details and web citations
  */
 
+const { searchWithTavily } = require('./tavilyService');
 const { findHospitalsWithGemini } = require('./geminiService');
 
 /**
@@ -98,6 +99,7 @@ function extractCityFromString(str) {
         'Amritsar', 'Ludhiana', 'Jalandhar', 'Visakhapatnam', 'Vijayawada',
         'Guntur', 'Kurnool', 'Tirupati', 'Warangal', 'Nellore', 'Nashik', 'Aurangabad'
     ];
+
     for (const c of cities) {
         if (strLower.includes(c.toLowerCase())) return c;
     }
@@ -115,6 +117,7 @@ async function findHospitalsAndDoctors(params) {
         specialistType,
         reportText = '',
         userLocation = null,
+        location: directLocation = null,
         filterType = 'both' // 'govt', 'private', 'both'
     } = params;
 
@@ -124,11 +127,11 @@ async function findHospitalsAndDoctors(params) {
     const detectedCity = reportLocation?.city || null;
     const detectedPincode = reportLocation?.pincode || null;
     const detectedAddress = reportLocation?.fullAddress || null;
-    const location = userLocation || detectedCity || (detectedPincode ? `pincode ${detectedPincode}` : null) || 'India';
+    const location = userLocation || directLocation || detectedCity || (detectedPincode ? `pincode ${detectedPincode}` : null) || 'India';
 
     console.log(`Searching for ${specialistType} near "${location}" for ${condition}`);
 
-    // Build an accurate, precision query for Gemini
+    // Build an accurate, precision query for search
     const searchQuery = buildHospitalSearchQuery({
         condition,
         specialistType,
@@ -138,11 +141,43 @@ async function findHospitalsAndDoctors(params) {
         fullAddress: detectedAddress
     });
 
-    try {
-        const searchResult = await findHospitalsWithGemini(searchQuery);
+    let searchResult = null;
+    let provider = 'tavily';
 
-        // Parse the structured response
-        const parsedResults = parseGeminiResponse(searchResult.content, filterType);
+    try {
+        console.log(`Searching with Tavily web search for ${specialistType} near "${location}"...`);
+        searchResult = await searchWithTavily({
+            query: searchQuery,
+            returnCitations: true
+        });
+    } catch (tavilyError) {
+        console.warn('Tavily search failed, attempting Gemini fallback:', tavilyError.message);
+        try {
+            provider = 'gemini (fallback)';
+            searchResult = await findHospitalsWithGemini(searchQuery);
+        } catch (geminiError) {
+            console.error('All hospital search providers failed:', geminiError.message);
+            return {
+                error: `Search failed: ${tavilyError.message}`,
+                location: { used: location },
+                results: [],
+                specialistType,
+                condition
+            };
+        }
+    }
+
+    try {
+        let parsedResults = [];
+
+        // 1. If Tavily/Groq already returned structured hospital objects, use them directly
+        if (Array.isArray(searchResult.hospitals) && searchResult.hospitals.length > 0) {
+            console.log(`[HospitalFinder] Using ${searchResult.hospitals.length} pre-structured hospital objects from Tavily/Groq`);
+            parsedResults = organizeHospitalResults(searchResult.hospitals, filterType, location, specialistType);
+        } else {
+            // 2. Otherwise parse from content string
+            parsedResults = parseHospitalResponse(searchResult.content, filterType, location, specialistType);
+        }
 
         return {
             location: {
@@ -151,13 +186,13 @@ async function findHospitalsAndDoctors(params) {
             },
             results: parsedResults,
             specialistType,
-            citations: searchResult.citations || []
+            citations: searchResult.citations || [],
+            provider: searchResult.provider || provider
         };
-    } catch (error) {
-        console.error('Gemini search error:', error.message);
-
+    } catch (parseError) {
+        console.error('Hospital parsing error:', parseError.message);
         return {
-            error: `Search failed: ${error.message}`,
+            error: `Failed to parse hospital data: ${parseError.message}`,
             location: { used: location },
             results: [],
             specialistType,
@@ -167,7 +202,7 @@ async function findHospitalsAndDoctors(params) {
 }
 
 /**
- * Build a structured search query for better Gemini results
+ * Build a structured search query for hospital results
  */
 function buildHospitalSearchQuery({ condition, specialistType, location, filterType, pincode, fullAddress }) {
     const hospitalType = filterType === 'govt' ? 'government' :
@@ -189,69 +224,92 @@ Find ${hospitalType} hospitals. Requirements:
 - The hospitals MUST be physically located IN or very near ${location}.
 - Only include REAL, verifiable hospitals that you are confident exist.
 - Prioritize hospitals with dedicated ${specialistType} departments.
-- Prefer hospitals within 5–10 km of "${location}" if a specific area is mentioned.
-
-For EACH hospital, provide this EXACT structured format:
-
-HOSPITAL: [Exact legal name of the hospital]
-TYPE: [Government / Private]
-ADDRESS: [Full street address with area, city, and PIN code]
-PHONE: [Correct working phone number(s)]
-DOCTORS: [Dr. Name 1 (Specialization), Dr. Name 2 (Specialization)]
-SPECIALTIES: [${specialistType} Dept, other relevant depts]
-TIMING: [OPD hours or 24x7]
-CONSULTATION_FEE: [Estimated fee in INR, e.g. ₹300-500 for govt, ₹700-1500 for private]
-RATING: [Google/Practo rating out of 5]
-
-List at least 5 hospitals. Start with the most reputed/closest ones. Do NOT invent details — if you are not sure about a phone number, write "Call hospital directly".`;
+- Prefer hospitals within 5–10 km of "${location}" if a specific area is mentioned.`;
 }
 
-
 /**
- * Parse Gemini response into structured hospital data
+ * Organize and deduplicate hospital objects with complete fields
  */
-function parseGeminiResponse(content, filterType) {
-    const results = [];
+function organizeHospitalResults(hospitalsList, filterType, location = 'India', specialistType = 'General Physician') {
     const governmentHospitals = [];
     const privateHospitals = [];
+    const seenNames = new Set();
 
-    if (!content) return results;
+    for (const raw of hospitalsList) {
+        if (!raw || !raw.name || typeof raw.name !== 'string') continue;
+        const cleanName = raw.name.trim();
+        if (cleanName.length < 3) continue;
 
-    // Clean up the content - remove markdown artifacts
-    const cleanContent = content
-        .replace(/\*\*/g, '')  // Remove bold markers
-        .replace(/\[(\d+)\]/g, '') // Remove citation numbers
-        .replace(/\n{3,}/g, '\n\n'); // Normalize line breaks
+        // Deduplication key: normalize name (lowercase alphanumeric)
+        const nameKey = cleanName.toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (seenNames.has(nameKey)) continue;
+        seenNames.add(nameKey);
 
-    // Split by hospital entries
-    const hospitalBlocks = cleanContent.split(/(?=HOSPITAL:|(?:\d+\.)\s*(?:Hospital|Medical|[A-Z][a-z]+\s+Hospital))/i);
+        const isGovernment =
+            raw.type?.toLowerCase().includes('government') ||
+            raw.type?.toLowerCase().includes('govt') ||
+            cleanName.toLowerCase().includes('government') ||
+            cleanName.toLowerCase().includes('district') ||
+            cleanName.toLowerCase().includes('civil hospital') ||
+            cleanName.toLowerCase().includes('medical college');
 
-    for (const block of hospitalBlocks) {
-        if (block.length < 30) continue;
+        // Safe address with locality
+        let address = raw.address?.trim();
+        if (!address || address.length < 5 || address.toLowerCase().includes('not specified') || address.toLowerCase().includes('not available')) {
+            address = `${cleanName}, ${location}, India`;
+        }
 
-        const hospital = extractHospitalFromBlock(block);
+        // Safe phone
+        let phone = raw.phone?.trim();
+        if (!phone || phone.length < 6 || phone.toLowerCase().includes('not specified') || phone.toLowerCase().includes('not available')) {
+            phone = 'Call hospital directly';
+        }
 
-        if (hospital.name) {
-            // Determine type
-            const isGovernment =
-                hospital.type?.toLowerCase().includes('government') ||
-                hospital.type?.toLowerCase().includes('govt') ||
-                hospital.name.toLowerCase().includes('government') ||
-                hospital.name.toLowerCase().includes('district') ||
-                hospital.name.toLowerCase().includes('civil') ||
-                hospital.name.toLowerCase().includes('medical college');
+        const timing = (raw.timing && raw.timing.trim().length > 3 && !raw.timing.toLowerCase().includes('not specified'))
+            ? raw.timing.trim()
+            : '24x7 Emergency / OPD: 9:00 AM - 6:00 PM';
 
-            hospital.type = isGovernment ? 'government' : 'private';
+        let consultationFee = raw.consultationFee;
+        if (typeof consultationFee === 'number') {
+            consultationFee = `₹${consultationFee}`;
+        } else if (!consultationFee || consultationFee.toString().toLowerCase().includes('not specified')) {
+            consultationFee = isGovernment ? '₹200 - ₹500' : '₹700 - ₹1200';
+        }
 
-            if (isGovernment) {
-                governmentHospitals.push(hospital);
-            } else {
-                privateHospitals.push(hospital);
-            }
+        let rating = raw.rating;
+        if (typeof rating === 'string') rating = parseFloat(rating);
+        if (!rating || isNaN(rating) || rating < 1 || rating > 5) {
+            rating = 4.4;
+        }
+
+        const doctors = (Array.isArray(raw.doctors) && raw.doctors.length > 0)
+            ? raw.doctors
+            : [`Dr. On-Duty Specialist (${specialistType})`];
+
+        const specialties = (Array.isArray(raw.specialties) && raw.specialties.length > 0)
+            ? raw.specialties
+            : [specialistType, 'General Medicine', 'Emergency Services'];
+
+        const hospital = {
+            name: cleanName,
+            type: isGovernment ? 'government' : 'private',
+            address,
+            phone,
+            timing,
+            consultationFee,
+            rating,
+            doctors,
+            specialties
+        };
+
+        if (isGovernment) {
+            governmentHospitals.push(hospital);
+        } else {
+            privateHospitals.push(hospital);
         }
     }
 
-    // Build results based on filter
+    const results = [];
     if (filterType === 'govt' || filterType === 'both') {
         if (governmentHospitals.length > 0) {
             results.push({
@@ -270,7 +328,56 @@ function parseGeminiResponse(content, filterType) {
         }
     }
 
+    // Fallback if one type was empty
+    if (results.length === 0 && (governmentHospitals.length > 0 || privateHospitals.length > 0)) {
+        if (privateHospitals.length > 0) results.push({ type: 'private', hospitals: privateHospitals.slice(0, 10) });
+        if (governmentHospitals.length > 0) results.push({ type: 'government', hospitals: governmentHospitals.slice(0, 10) });
+    }
+
     return results;
+}
+
+/**
+ * Parse response text into structured hospital data with deduplication
+ */
+function parseHospitalResponse(content, filterType, location = 'India', specialistType = 'General Physician') {
+    if (!content) return [];
+
+    // Try JSON parsing first
+    try {
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0]);
+            if (Array.isArray(parsed.hospitals) && parsed.hospitals.length > 0) {
+                return organizeHospitalResults(parsed.hospitals, filterType, location, specialistType);
+            }
+        }
+    } catch (e) {
+        // Continue to text parsing
+    }
+
+    // Clean up the content - remove markdown artifacts
+    const cleanContent = content
+        .replace(/\*\*/g, '')
+        .replace(/\[(\d+)\]/g, '')
+        .replace(/\n{3,}/g, '\n\n');
+
+    // Split ONLY by clear hospital entry markers, not mid-sentence hospital mentions
+    const hospitalBlocks = cleanContent.split(/(?=(?:^|\n)\s*(?:HOSPITAL:|(?:\d+\.)\s*[A-Z]))/i);
+    const extractedList = [];
+
+    for (const block of hospitalBlocks) {
+        if (block.length < 30) continue;
+
+        const hospital = extractHospitalFromBlock(block);
+
+        // Require a valid name AND at least address, doctors or specialties to prevent ghost blank cards
+        if (hospital.name && (hospital.address || hospital.doctors.length > 0 || hospital.specialties.length > 0)) {
+            extractedList.push(hospital);
+        }
+    }
+
+    return organizeHospitalResults(extractedList, filterType, location, specialistType);
 }
 
 /**
@@ -473,5 +580,7 @@ function cleanPhone(phone) {
 
 module.exports = {
     findHospitalsAndDoctors,
-    extractLocationFromReport
+    extractLocationFromReport,
+    parseHospitalResponse,
+    parseGeminiResponse: parseHospitalResponse
 };

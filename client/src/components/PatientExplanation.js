@@ -302,7 +302,7 @@ function PatientExplanation({ explanation }) {
                 </motion.div>
             )}
 
-            <style jsx>{`
+            <style>{`
                 .typing-cursor {
                     display: inline-block;
                     width: 2px;

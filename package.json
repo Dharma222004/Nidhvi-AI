@@ -7,6 +7,6 @@
         "build": "cd client && npm install && npm run build"
     },
     "devDependencies": {
-        "concurrently": "^8.2.2"
+        "concurrently": "^10.0.5"
     }
 }

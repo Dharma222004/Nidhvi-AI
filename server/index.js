@@ -3,12 +3,16 @@
  * Main entry point for the backend API
  */
 
-require("dotenv").config();
+const path = require("path");
+
+// Load environment variables reliably from both server/.env and root .env
+require("dotenv").config({ path: path.join(__dirname, ".env"), override: true });
+require("dotenv").config({ path: path.join(__dirname, "../.env"), override: true });
+
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
-const path = require("path");
 
 // Import routes
 const analyzeRoutes = require("./routes/analyze");
@@ -29,6 +33,7 @@ app.set("trust proxy", 1);
 console.log("Environment Check:", {
   hasGemini: !!process.env.GEMINI_API_KEY_1 || !!process.env.GEMINI_API_KEY,
   hasGroq: !!process.env.GROQ_API_KEY,
+  hasTavily: !!process.env.TAVILY_API_KEY,
   isVercel: !!process.env.VERCEL,
   nodeEnv: process.env.NODE_ENV,
 });
@@ -48,16 +53,17 @@ const limiter = rateLimit({
 });
 app.use("/api/", limiter);
 
-// CORS configuration
 // CORS configuration - Robust handling for multiple environments
 const allowedOrigins = [
   "http://localhost:3000",
   "http://127.0.0.1:3000",
+  "http://localhost:5000",
+  "http://127.0.0.1:5000",
   "https://nidhvi-ai.vercel.app",
   "http://nidhvi-ai.vercel.app",
   "nidhvi-ai.vercel.app",
   process.env.FRONTEND_URL,
-].filter(Boolean).map(origin => origin.replace(/\/$/, "")); // Pre-normalize
+].filter(Boolean).map(origin => origin.trim().replace(/\/+$/, "")); // Pre-normalize
 
 app.use(
   cors({
@@ -65,18 +71,30 @@ app.use(
       // Allow requests with no origin (like mobile apps or curl)
       if (!origin) return callback(null, true);
 
-      const normalizedOrigin = origin.replace(/\/$/, "");
+      const normalizedOrigin = origin.trim().replace(/\/+$/, "");
+
+      // In development or local environments, allow any localhost or 127.0.0.1 origin
+      if (
+        process.env.NODE_ENV !== "production" &&
+        /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(normalizedOrigin)
+      ) {
+        return callback(null, true);
+      }
 
       const isAllowed = allowedOrigins.some((allowed) => {
+        const cleanAllowed = allowed.replace(/^https?:\/\//, "").replace(/\/+$/, "");
+        const cleanOrigin = normalizedOrigin.replace(/^https?:\/\//, "");
         return (
           allowed === normalizedOrigin ||
-          allowed === normalizedOrigin.replace(/^https?:\/\//, "") ||
-          `https://${allowed}` === normalizedOrigin ||
-          `http://${allowed}` === normalizedOrigin
+          cleanAllowed === cleanOrigin ||
+          cleanOrigin.endsWith(".vercel.app")
         );
       });
 
       if (isAllowed) {
+        callback(null, true);
+      } else if (process.env.NODE_ENV !== "production") {
+        console.warn(`[CORS DEV ALLOWED] Origin: ${origin}`);
         callback(null, true);
       } else {
         console.error(`[CORS REJECTED] Origin: ${origin}`);

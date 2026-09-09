@@ -35,10 +35,17 @@ function rotateKey() {
   return true;
 }
 
-// Model configurations - using gemini-2.5-flash (latest model)
+// Model configurations with robust fallback hierarchy
+const PRIMARY_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+const FALLBACK_MODELS = [
+  PRIMARY_MODEL,
+  'gemini-3.5-flash',
+  'gemini-3.6-flash'
+].filter((m, i, arr) => arr.indexOf(m) === i);
+
 const MODELS = {
-  vision: process.env.GEMINI_MODEL || 'gemini-1.5-flash',
-  text: process.env.GEMINI_MODEL || 'gemini-1.5-flash'
+  vision: PRIMARY_MODEL,
+  text: PRIMARY_MODEL
 };
 
 // Generation config for optimized responses
@@ -48,9 +55,73 @@ const generationConfig = {
 };
 
 /**
- * Retry helper with exhaustive API key rotation and exponential backoff
+ * Execute a Gemini operation with automatic model fallback, key rotation, and retry
  */
-async function withRetry(fn, maxRetries = 10) { // Increased retries to cover all keys multiple times
+async function executeWithGemini(operationFn, options = {}) {
+  const models = options.models || FALLBACK_MODELS;
+  let lastError = null;
+
+  for (let modelIndex = 0; modelIndex < models.length; modelIndex++) {
+    const currentModelName = models[modelIndex];
+    let keyAttempts = 0;
+    const maxKeyAttempts = Math.max(2, GEMINI_KEYS.length * 2);
+
+    while (keyAttempts < maxKeyAttempts) {
+      try {
+        const genAI = getGenAI();
+        const model = genAI.getGenerativeModel({
+          model: currentModelName,
+          generationConfig: options.generationConfig || generationConfig
+        });
+        return await operationFn(model, currentModelName);
+      } catch (error) {
+        lastError = error;
+        const errorMsg = error.message?.toLowerCase() || '';
+        const isHighDemand = errorMsg.includes('503') || errorMsg.includes('demand') || errorMsg.includes('unavailable') || errorMsg.includes('temporarily');
+        const isRateLimit = errorMsg.includes('429') || errorMsg.includes('quota') || errorMsg.includes('limit');
+        const isAuthError = errorMsg.includes('401') || errorMsg.includes('invalid') || errorMsg.includes('key');
+        const isModelNotFound = errorMsg.includes('404') || errorMsg.includes('not found') || errorMsg.includes('no longer available');
+        const isTransient = isHighDemand || errorMsg.includes('500') || errorMsg.includes('502') || errorMsg.includes('504') || errorMsg.includes('fetch');
+
+        console.error(`Gemini Error on [${currentModelName}] (Attempt ${keyAttempts + 1}/${maxKeyAttempts}, Key ${currentKeyIndex + 1}):`, error.message);
+
+        // If the model is under high demand (503) or not found (404), switch to the next fallback model immediately!
+        if ((isHighDemand || isModelNotFound) && modelIndex < models.length - 1) {
+          console.log(`Model [${currentModelName}] returned ${isHighDemand ? '503 High Demand' : 'unavailable'}. Switching immediately to fallback model [${models[modelIndex + 1]}]...`);
+          break; // Exit inner key loop to try next model
+        }
+
+        // On rate limit or auth error, rotate keys
+        if (isRateLimit || isAuthError) {
+          if (rotateKey()) {
+            keyAttempts++;
+            await new Promise(r => setTimeout(r, 1000));
+            continue;
+          }
+        }
+
+        // If transient error and still have attempts, backoff and retry
+        if (isTransient && keyAttempts < maxKeyAttempts - 1) {
+          keyAttempts++;
+          const delay = Math.min(1000 * Math.pow(2, keyAttempts), 4000);
+          console.log(`Transient error on [${currentModelName}], retrying in ${delay / 1000}s...`);
+          await new Promise(r => setTimeout(r, delay));
+          continue;
+        }
+
+        // If not retryable or attempts exhausted for this model, try next model if available
+        break;
+      }
+    }
+  }
+
+  throw lastError || new Error('All Gemini models and keys exhausted');
+}
+
+/**
+ * Retry helper with exhaustive API key rotation, exponential backoff, and 503 handling
+ */
+async function withRetry(fn, maxRetries = 6) {
   let attemptsWithCurrentKey = 0;
   const maxAttemptsPerKey = 2;
 
@@ -61,26 +132,25 @@ async function withRetry(fn, maxRetries = 10) { // Increased retries to cover al
       const errorMsg = error.message?.toLowerCase() || '';
       const isRateLimit = errorMsg.includes('429') || errorMsg.includes('quota') || errorMsg.includes('limit');
       const isAuthError = errorMsg.includes('401') || errorMsg.includes('invalid') || errorMsg.includes('key');
+      const isHighDemand = errorMsg.includes('503') || errorMsg.includes('demand') || errorMsg.includes('unavailable') || errorMsg.includes('temporarily');
+      const isTransient = isHighDemand || errorMsg.includes('500') || errorMsg.includes('502') || errorMsg.includes('504');
 
       console.error(`Gemini Error (Attempt ${attempt}/${maxRetries}):`, error.message);
 
-      if ((isRateLimit || isAuthError) && attempt < maxRetries) {
+      if ((isRateLimit || isAuthError || isTransient) && attempt < maxRetries) {
         attemptsWithCurrentKey++;
 
-        // If current key failed twice or it's an auth error, definitely rotate
         if (attemptsWithCurrentKey >= maxAttemptsPerKey || isAuthError) {
           if (rotateKey()) {
             attemptsWithCurrentKey = 0;
-            console.log(`Switching to key ${currentKeyIndex + 1} due to ${isRateLimit ? 'usage limits' : 'auth error'}.`);
-            // Brief pause to let the system stabilize
+            console.log(`Switching to key ${currentKeyIndex + 1} due to ${isRateLimit ? 'usage limits' : isAuthError ? 'auth error' : 'server overload'}.`);
             await new Promise(resolve => setTimeout(resolve, 1000));
             continue;
           }
         }
 
-        // If rotation not possible or we want to try the same key one more time with backoff
-        const delay = Math.pow(2, attemptsWithCurrentKey) * 2000;
-        console.log(`Retrying same key in ${delay / 1000}s...`);
+        const delay = Math.min(Math.pow(2, attemptsWithCurrentKey) * 1500, 4000);
+        console.log(`Retrying after backoff in ${delay / 1000}s...`);
         await new Promise(resolve => setTimeout(resolve, delay));
       } else {
         throw error;
@@ -223,9 +293,6 @@ function toGenerativePart(input, mimeType) {
  * @param {string|Buffer} input - File path or Buffer
  */
 async function extractFromImage(input, mimeType) {
-  const genAI = getGenAI();
-  const model = genAI.getGenerativeModel({ model: MODELS.vision, generationConfig });
-
   const imagePart = toGenerativePart(input, mimeType);
 
   const extractionPrompt = `You are a medical report extraction specialist. Analyze this medical report image and extract all relevant information.
@@ -281,11 +348,11 @@ IMPORTANT:
 Respond ONLY with valid JSON.`;
 
   try {
-    const result = await withRetry(async () => {
-      return await model.generateContent([extractionPrompt, imagePart]);
+    const text = await executeWithGemini(async (model) => {
+      const result = await model.generateContent([extractionPrompt, imagePart]);
+      const response = await result.response;
+      return response.text();
     });
-    const response = await result.response;
-    const text = response.text();
 
     // Parse JSON from response using robust parser
     return cleanAndParseJSON(text);
@@ -299,10 +366,6 @@ Respond ONLY with valid JSON.`;
  * Extract content from text-based report
  */
 async function extractFromText(reportText) {
-  const genAI = getGenAI();
-  const model = genAI.getGenerativeModel({ model: MODELS.text, generationConfig });
-
-
   const extractionPrompt = `You are a medical report extraction specialist. Analyze this medical report text and extract all relevant information.
 
 REPORT TEXT:
@@ -344,11 +407,11 @@ OUTPUT FORMAT (JSON):
 Respond ONLY with valid JSON.`;
 
   try {
-    const result = await withRetry(async () => {
-      return await model.generateContent(extractionPrompt);
+    const text = await executeWithGemini(async (model) => {
+      const result = await model.generateContent(extractionPrompt);
+      const response = await result.response;
+      return response.text();
     });
-    const response = await result.response;
-    const text = response.text();
 
     // Parse JSON from response using robust parser
     return cleanAndParseJSON(text);
@@ -362,10 +425,6 @@ Respond ONLY with valid JSON.`;
  * Generate Patient-Mode Explanation
  */
 async function generatePatientExplanation(extractedData) {
-  const genAI = getGenAI();
-  const model = genAI.getGenerativeModel({ model: MODELS.text, generationConfig });
-
-
   const prompt = `You are a compassionate healthcare communication specialist. Your job is to explain medical reports to patients in simple, reassuring language.
 
 EXTRACTED REPORT DATA:
@@ -416,11 +475,11 @@ Remember: Patients may be anxious. Be kind, clear, and helpful.
 Respond ONLY with valid JSON.`;
 
   try {
-    const result = await withRetry(async () => {
-      return await model.generateContent(prompt);
+    const text = await executeWithGemini(async (model) => {
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      return response.text();
     });
-    const response = await result.response;
-    const text = response.text();
 
     // Parse JSON from response using robust parser
     return cleanAndParseJSON(text);
@@ -434,8 +493,6 @@ Respond ONLY with valid JSON.`;
  * Generate Clinician-Mode Explanation
  */
 async function generateClinicianExplanation(extractedData) {
-  const model = genAI.getGenerativeModel({ model: MODELS.text, generationConfig });
-
   const prompt = `You are a clinical decision support specialist. Your job is to provide concise, actionable summaries for healthcare providers.
 
 EXTRACTED REPORT DATA:
@@ -502,11 +559,11 @@ OUTPUT FORMAT (JSON):
 Respond ONLY with valid JSON.`;
 
   try {
-    const result = await withRetry(async () => {
-      return await model.generateContent(prompt);
+    const text = await executeWithGemini(async (model) => {
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      return response.text();
     });
-    const response = await result.response;
-    const text = response.text();
 
     // Parse JSON from response using robust parser
     return cleanAndParseJSON(text);
@@ -520,9 +577,6 @@ Respond ONLY with valid JSON.`;
  * Generate Patient Explanation with streaming (calls onChunk for each text chunk)
  */
 async function generatePatientExplanationStream(extractedData, onChunk) {
-  const genAI = getGenAI();
-  const model = genAI.getGenerativeModel({ model: MODELS.text });
-
   const prompt = `You are a compassionate healthcare communication specialist. Explain this medical report to the patient in simple, kind, reassuring language.
 
 REPORT DATA:
@@ -550,14 +604,16 @@ Write a thorough plain-English explanation covering exactly these sections with 
 Write in flowing paragraphs. Use simple language a 10-year-old could understand. Be warm and caring. Do NOT use JSON. Use only the ## headers above.`;
 
   try {
-    const result = await model.generateContentStream(prompt);
-    let fullText = '';
-    for await (const chunk of result.stream) {
-      const chunkText = chunk.text();
-      fullText += chunkText;
-      if (onChunk) onChunk(chunkText);
-    }
-    return { explanation: fullText, summary: fullText.split('\n\n')[0] || '' };
+    return await executeWithGemini(async (model) => {
+      const result = await model.generateContentStream(prompt);
+      let fullText = '';
+      for await (const chunk of result.stream) {
+        const chunkText = chunk.text();
+        fullText += chunkText;
+        if (onChunk) onChunk(chunkText);
+      }
+      return { explanation: fullText, summary: fullText.split('\n\n')[0] || '' };
+    });
   } catch (error) {
     console.error('Patient explanation stream error:', error);
     throw error;
@@ -568,9 +624,6 @@ Write in flowing paragraphs. Use simple language a 10-year-old could understand.
  * Generate Clinician Explanation with streaming (calls onChunk for each text chunk)
  */
 async function generateClinicianExplanationStream(extractedData, onChunk) {
-  const genAI = getGenAI();
-  const model = genAI.getGenerativeModel({ model: MODELS.text });
-
   const prompt = `You are a clinical decision support specialist. Generate a concise clinical summary for this medical report.
 
 REPORT DATA:
@@ -587,14 +640,16 @@ Use clinical terminology. Be concise and scannable. Use bullet points where appr
 Do NOT use JSON format — write clear professional clinical prose with markdown headings.`;
 
   try {
-    const result = await model.generateContentStream(prompt);
-    let fullText = '';
-    for await (const chunk of result.stream) {
-      const chunkText = chunk.text();
-      fullText += chunkText;
-      if (onChunk) onChunk(chunkText);
-    }
-    return { clinicalSummary: fullText };
+    return await executeWithGemini(async (model) => {
+      const result = await model.generateContentStream(prompt);
+      let fullText = '';
+      for await (const chunk of result.stream) {
+        const chunkText = chunk.text();
+        fullText += chunkText;
+        if (onChunk) onChunk(chunkText);
+      }
+      return { clinicalSummary: fullText };
+    });
   } catch (error) {
     console.error('Clinician explanation stream error:', error);
     throw error;
@@ -652,11 +707,11 @@ Note: Generate realistic, representative citations for educational purposes. In 
 Respond ONLY with valid JSON.`;
 
   try {
-    const result = await withRetry(async () => {
-      return await model.generateContent(prompt);
+    const text = await executeWithGemini(async (model) => {
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      return response.text();
     });
-    const response = await result.response;
-    const text = response.text();
 
     // Parse JSON from response using robust parser
     return cleanAndParseJSON(text);
@@ -670,14 +725,14 @@ Respond ONLY with valid JSON.`;
  * Validate API key
  */
 async function validateApiKey() {
-  if (!process.env.GEMINI_API_KEY) {
+  if (!process.env.GEMINI_API_KEY && (!process.env.GEMINI_API_KEYS || process.env.GEMINI_API_KEYS.length === 0)) {
     return { valid: false, error: 'GEMINI_API_KEY not configured' };
   }
 
   try {
-    const genAI = getGenAI();
-    const model = genAI.getGenerativeModel({ model: MODELS.text });
-    await model.generateContent('Test');
+    await executeWithGemini(async (model) => {
+      return await model.generateContent('Test');
+    });
     return { valid: true };
   } catch (error) {
     return { valid: false, error: error.message };
@@ -688,10 +743,6 @@ async function validateApiKey() {
  * Find hospitals and doctors using Gemini (Fallback)
  */
 async function findHospitalsWithGemini(query) {
-  const genAI = getGenAI();
-  const model = genAI.getGenerativeModel({ model: MODELS.text, generationConfig });
-
-
   const prompt = `You are a healthcare facility finder assistant. Provide detailed information about hospitals, clinics, and doctors in India based on your knowledge.
   
   QUERY: ${query}
@@ -715,16 +766,16 @@ async function findHospitalsWithGemini(query) {
   Respond with PLAIN TEXT info, similar to a search result list.`;
 
   try {
-    const result = await withRetry(async () => {
-      return await model.generateContent(prompt);
+    const text = await executeWithGemini(async (model, modelName) => {
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      return response.text();
     });
-    const response = await result.response;
-    const text = response.text();
 
     return {
       success: true,
       content: text,
-      citations: [], // Gemini basic doesn't provide citations easily in this format
+      citations: [],
       model: MODELS.text,
       provider: 'gemini (fallback)'
     };
@@ -732,6 +783,17 @@ async function findHospitalsWithGemini(query) {
     console.error('Gemini hospital search error:', error);
     throw new Error(`Gemini fallback failed: ${error.message}`);
   }
+}
+
+/**
+ * Answer a medical doubt or patient question using Gemini
+ */
+async function answerQuestionWithGemini(prompt) {
+  return await executeWithGemini(async (model) => {
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    return response.text();
+  });
 }
 
 module.exports = {
@@ -743,6 +805,7 @@ module.exports = {
   generateClinicianExplanationStream,
   generateCitations,
   validateApiKey,
-  findHospitalsWithGemini
+  findHospitalsWithGemini,
+  answerQuestionWithGemini
 };
 

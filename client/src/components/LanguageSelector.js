@@ -35,7 +35,7 @@ function LanguageSelector({ selectedLanguage, onLanguageChange, className = '' }
                 </select>
             </div>
 
-            <style jsx>{`
+            <style>{`
         .language-selector {
           display: flex;
           align-items: center;

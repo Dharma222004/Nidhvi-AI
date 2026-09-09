@@ -7,6 +7,7 @@ const geminiService = require('./geminiService');
 const groqService = require('./groqService');
 const oxloService = require('./oxloService');
 const sarvamService = require('./sarvamService');
+const tavilyService = require('./tavilyService');
 
 /**
  * MODEL SELECTION STRATEGY
@@ -16,11 +17,11 @@ const sarvamService = require('./sarvamService');
  *    - Scanned PDF/Images → Oxlo gemma-3-4b (OCR) → fallback: Gemini 2.5-flash
  * 
  * 2. Medical Analysis:
- *    - Groq llama-3.3-70b-versatile
+ *    - Groq openai/gpt-oss-120b
  * 
  * 3. Hospital/Doctor Finder:
- *    - Gemini API (hospital search)
- *    - Groq llama-3.1-8b-instant (summarize results)
+ *    - Tavily Search API (web research) → fallback: Gemini API
+ *    - Groq openai/gpt-oss-120b (structure results)
  * 
  * 4. Translation:
  *    - Sarvam AI (Best for Indic) → fallback: Groq llama-3.3-70b-versatile
@@ -35,24 +36,24 @@ const sarvamService = require('./sarvamService');
 const MODEL_STRATEGY = {
     // PDF Processing
     PDF_TEXT_EXTRACTION: 'pdf-parser', // Use pdfplumber/pymupdf
-    PDF_OCR_PRIMARY: 'oxlo-gemma-3-4b',
-    PDF_OCR_FALLBACK: 'gemini-2.5-flash',
+    PDF_OCR_PRIMARY: 'gemini-2.5-flash',
+    PDF_OCR_FALLBACK: 'gemini-3.5-flash',
 
     // Medical Analysis
-    MEDICAL_ANALYSIS: 'groq-llama-70b',
-    ISSUE_IDENTIFICATION: 'groq-llama-70b',
+    MEDICAL_ANALYSIS: 'groq-gpt-oss-120b',
+    ISSUE_IDENTIFICATION: 'groq-gpt-oss-120b',
 
     // Hospital/Doctor Finder
-    WEB_RESEARCH: 'gemini',
-    RESEARCH_SUMMARIZATION: 'groq-llama-8b',
+    WEB_RESEARCH: 'tavily',
+    RESEARCH_SUMMARIZATION: 'groq-gpt-oss-120b',
 
     // Translation
     TRANSLATION: 'sarvam',
-    TRANSLATION_FALLBACK: 'groq-llama-70b',
+    TRANSLATION_FALLBACK: 'groq-gpt-oss-120b',
 
     // Q&A
-    QA_COMPLEX: 'groq-llama-70b',
-    QA_QUICK: 'groq-llama-8b',
+    QA_COMPLEX: 'groq-gpt-oss-120b',
+    QA_QUICK: 'groq-gpt-oss-20b',
 
     // Voice
     STT_INDIC: 'sarvam',
@@ -63,8 +64,8 @@ const MODEL_STRATEGY = {
     TTS_FALLBACK: 'oxlo-kokoro',
 
     // Report Generation
-    REPORT_PATIENT_FRIENDLY: 'groq-llama-8b',
-    REPORT_PROFESSIONAL: 'groq-llama-70b'
+    REPORT_PATIENT_FRIENDLY: 'groq-gpt-oss-20b',
+    REPORT_PROFESSIONAL: 'groq-gpt-oss-120b'
 };
 
 /**
@@ -126,18 +127,18 @@ async function extractWithOCR(filePath, mimeType) {
 
 /**
  * Perform medical analysis on extracted report data
- * Uses: Groq llama-3.3-70b-versatile (best for clinical interpretation)
+ * Uses: Groq openai/gpt-oss-120b (best for clinical interpretation)
  * @param {string} reportText - Extracted report text
  * @returns {Promise<Object>} Analysis result
  */
 async function analyzeMedicalReport(reportText) {
-    console.log('Analyzing medical report with Groq llama-3.3-70b...');
+    console.log('Analyzing medical report with Groq openai/gpt-oss-120b...');
 
     const analysis = await groqService.analyzeReport(reportText, 'chat');
 
     return {
         provider: 'groq',
-        model: 'llama-3.3-70b-versatile',
+        model: groqService.GROQ_CONFIG.models.chat,
         analysis
     };
 }
@@ -163,46 +164,42 @@ Provide:
 
     return {
         provider: 'groq',
-        model: 'llama-3.3-70b-versatile',
+        model: groqService.GROQ_CONFIG.models.chat,
         issues: response
     };
 }
 
 /**
  * Find hospitals and specialist doctors using web research
- * Primary: Gemini API (hospital search)
- * Summarization: Groq llama-3.1-8b-instant
+ * Primary: Tavily Search API
+ * Structuring: Groq openai/gpt-oss-120b
  * @param {Object} searchParams - Search parameters (location, specialty, condition)
  * @returns {Promise<Object>} Hospital and doctor recommendations
  */
 async function findHospitalsAndDoctors(searchParams) {
     const { location, specialty, condition } = searchParams;
 
-    // Use Gemini for web research
     const searchQuery = `Find best hospitals and specialist doctors for ${condition} in ${location}. Include:
 - Hospital names and ratings
 - Specialist doctors with qualifications
 - Contact information
 - Patient reviews`;
 
-    // Note: Implement actual Gemini API call here
-    // For now, using Groq as placeholder
-    const researchResults = await groqService.medicalQA(searchQuery);
-
-    // Summarize results with fast Groq model
-    const summary = await groqService.fastChat(
-        `Summarize these hospital/doctor recommendations in a clear, organized format:\n\n${researchResults}`
-    );
+    const searchResult = await tavilyService.searchWithTavily({
+        query: searchQuery,
+        returnCitations: true
+    });
 
     return {
         research: {
-            provider: 'gemini',
-            rawResults: researchResults
+            provider: 'tavily',
+            rawResults: searchResult.content,
+            citations: searchResult.citations
         },
         summary: {
             provider: 'groq',
-            model: 'llama-3.1-8b-instant',
-            content: summary
+            model: groqService.GROQ_CONFIG.models.chat,
+            content: searchResult.content
         }
     };
 }
@@ -231,7 +228,7 @@ ${text}`;
 
     return {
         provider: 'groq',
-        model: 'llama-3.3-70b-versatile',
+        model: groqService.GROQ_CONFIG.models.chat,
         targetLanguage,
         translation
     };
@@ -329,7 +326,7 @@ async function generatePatientSummary(reportData) {
 
     return {
         provider: 'groq',
-        model: 'llama-3.1-8b-instant',
+        model: groqService.GROQ_CONFIG.models.fastChat,
         summary: result
     };
 }
@@ -352,7 +349,7 @@ ${JSON.stringify(reportData, null, 2)}`;
 
     return {
         provider: 'groq',
-        model: 'llama-3.3-70b-versatile',
+        model: groqService.GROQ_CONFIG.models.chat,
         report: result
     };
 }
@@ -409,7 +406,7 @@ async function processReportOptimized(file, mode = 'patient') {
     const analysisStart = Date.now();
     const analysis = await analyzeMedicalReport(extractedText);
     result.step2_analysis = analysis;
-    result.metadata.modelsUsed.push('llama-3.3-70b-versatile');
+    result.metadata.modelsUsed.push(groqService.GROQ_CONFIG.models.chat);
     result.metadata.processingTime.analysis = Date.now() - analysisStart;
 
     // Step 3: Issue Identification
@@ -425,7 +422,7 @@ async function processReportOptimized(file, mode = 'patient') {
         result.metadata.modelsUsed.push('llama-3.1-8b-instant');
     } else {
         result.step4_report = await generateProfessionalReport(analysis.analysis);
-        result.metadata.modelsUsed.push('llama-3.3-70b-versatile');
+        result.metadata.modelsUsed.push(groqService.GROQ_CONFIG.models.chat);
     }
     result.metadata.processingTime.report = Date.now() - reportStart;
 

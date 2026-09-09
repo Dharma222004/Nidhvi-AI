@@ -391,7 +391,7 @@ function TranslateButton({ analysisData }) {
                 )}
             </AnimatePresence>
 
-            <style jsx>{`
+            <style>{`
                 .translate-section {
                     margin: 1.5rem 0;
                 }

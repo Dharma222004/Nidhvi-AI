@@ -3,7 +3,7 @@
  * Handles interactions with Groq's ultra-fast AI models
  * 
  * Available Models:
- * - llama-3.3-70b-versatile: Complex medical Q&A and reasoning
+ * - openai/gpt-oss-120b: Complex medical Q&A, report analysis and reasoning
  * - llama-3.1-8b-instant: Fast, real-time chat responses
  * - whisper-large-v3-turbo: Speech-to-text transcription
  * - orpheus-v1-english: Text-to-speech (English)
@@ -22,14 +22,28 @@ const GROQ_CONFIG = {
   audioEndpoint: 'https://api.groq.com/openai/v1/audio/transcriptions',
   ttsEndpoint: 'https://api.groq.com/openai/v1/audio/speech',
   models: {
-    chat: process.env.GROQ_MODEL_CHAT || 'llama-3.3-70b-versatile',
-    fastChat: process.env.GROQ_MODEL_FAST_CHAT || 'llama-3.1-8b-instant',
+    chat: process.env.GROQ_MODEL_CHAT || 'openai/gpt-oss-120b',
+    fastChat: process.env.GROQ_MODEL_FAST_CHAT || 'openai/gpt-oss-20b',
     stt: process.env.GROQ_MODEL_STT || 'whisper-large-v3-turbo',
     tts: process.env.GROQ_MODEL_TTS || 'orpheus-v1-english',
     guardrail: process.env.GROQ_MODEL_GUARDRAIL || 'llama-guard-4-12b',
     promptGuard: process.env.GROQ_MODEL_PROMPT_GUARD || 'prompt-guard-2-86m'
   }
 };
+
+/**
+ * Map legacy or unavailable model names to available Groq models
+ */
+function resolveGroqModel(model) {
+  if (!model) return GROQ_CONFIG.models.chat;
+  if (model.includes('llama-3.1-8b') || model.includes('8b-instant')) {
+    return GROQ_CONFIG.models.fastChat || 'openai/gpt-oss-20b';
+  }
+  if (model.includes('llama-3.3-70b') || model.includes('70b-versatile')) {
+    return GROQ_CONFIG.models.chat || 'openai/gpt-oss-120b';
+  }
+  return model;
+}
 
 /**
  * Make a chat completion request to Groq
@@ -43,9 +57,11 @@ async function makeGroqChatRequest(model, messages, options = {}) {
     throw new Error('Groq API key not configured. Please add GROQ_API_KEY to your .env file.');
   }
 
+  const resolvedModel = resolveGroqModel(model);
+
   try {
     const requestBody = {
-      model: model,
+      model: resolvedModel,
       messages: messages,
       temperature: options.temperature || 0.7,
       max_tokens: options.max_tokens || options.maxTokens || 2048, // Support both formats
@@ -80,7 +96,7 @@ async function makeGroqChatRequest(model, messages, options = {}) {
 }
 
 /**
- * Medical Q&A using llama-3.3-70b-versatile
+ * Medical Q&A using openai/gpt-oss-120b
  * Best for complex medical reasoning and detailed explanations
  * @param {string} question - Medical question
  * @param {string} context - Additional context (report data, patient info, etc.)
@@ -406,7 +422,7 @@ function getAvailableModels() {
     models: {
       chat: {
         name: GROQ_CONFIG.models.chat,
-        description: 'Complex medical Q&A and reasoning (70B parameters)',
+        description: 'Complex medical Q&A, report analysis and reasoning (120B parameters)',
         useCases: ['Detailed analysis', 'Complex reasoning', 'Medical education'],
         speed: 'Fast',
         quality: 'Highest'
