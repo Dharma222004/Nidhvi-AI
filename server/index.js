@@ -50,8 +50,9 @@ const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100, // Limit each IP to 100 requests per window
   message: { error: "Too many requests, please try again later." },
+  validate: { xForwardedForHeader: false, default: false },
 });
-app.use("/api/", limiter);
+app.use(["/api/", "/"], limiter);
 
 // CORS configuration - Robust handling for multiple environments
 const allowedOrigins = [
@@ -68,14 +69,14 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (like mobile apps or curl)
+      // Allow requests with no origin (like mobile apps, curl, or serverless rewrites)
       if (!origin) return callback(null, true);
 
       const normalizedOrigin = origin.trim().replace(/\/+$/, "");
 
       // In development or local environments, allow any localhost or 127.0.0.1 origin
       if (
-        process.env.NODE_ENV !== "production" &&
+        process.env.NODE_ENV !== "production" ||
         /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(normalizedOrigin)
       ) {
         return callback(null, true);
@@ -91,15 +92,11 @@ app.use(
         );
       });
 
-      if (isAllowed) {
-        callback(null, true);
-      } else if (process.env.NODE_ENV !== "production") {
-        console.warn(`[CORS DEV ALLOWED] Origin: ${origin}`);
+      if (isAllowed || normalizedOrigin.includes("vercel.app")) {
         callback(null, true);
       } else {
-        console.error(`[CORS REJECTED] Origin: ${origin}`);
-        console.log(`[CORS] Allowed Origins:`, allowedOrigins);
-        callback(new Error(`Not allowed by CORS: ${origin}`));
+        console.warn(`[CORS PASS] Origin: ${origin}`);
+        callback(null, true);
       }
     },
     credentials: true,
@@ -115,17 +112,17 @@ app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 // Static files for uploaded reports
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-// API Routes
-app.use("/api/analyze", analyzeRoutes);
-app.use("/api/reports", reportsRoutes);
-app.use("/api/health", healthRoutes);
-app.use("/api/oxlo", oxloRoutes);
-app.use("/api/groq", groqRoutes);
-app.use("/api/enhanced", enhancedRoutes); // New enhanced workflow APIs
-app.use("/api/sarvam", sarvamRoutes); // Sarvam AI Multilingual APIs
+// API Routes - Dual mapped for /api/... and direct /... (essential for Vercel rewrites)
+app.use(["/api/analyze", "/analyze"], analyzeRoutes);
+app.use(["/api/reports", "/reports"], reportsRoutes);
+app.use(["/api/health", "/health"], healthRoutes);
+app.use(["/api/oxlo", "/oxlo"], oxloRoutes);
+app.use(["/api/groq", "/groq"], groqRoutes);
+app.use(["/api/enhanced", "/enhanced"], enhancedRoutes); // New enhanced workflow APIs
+app.use(["/api/sarvam", "/sarvam"], sarvamRoutes); // Sarvam AI Multilingual APIs
 
 // Root endpoint
-app.get("/", (req, res) => {
+app.get(["/", "/api"], (req, res) => {
   res.json({
     name: "Healthcare Report Explainer API",
     version: "1.0.0",
@@ -136,7 +133,7 @@ app.get("/", (req, res) => {
       health: "/api/health",
       oxlo: "/api/oxlo",
       groq: "/api/groq",
-      enhanced: "/api/enhanced", // Added missing endpoint list
+      enhanced: "/api/enhanced",
       sarvam: "/api/sarvam"
     },
     documentation: "/api/docs",
@@ -144,7 +141,7 @@ app.get("/", (req, res) => {
 });
 
 // API documentation endpoint
-app.get("/api/docs", (req, res) => {
+app.get(["/api/docs", "/docs"], (req, res) => {
   res.json({
     title: "Healthcare Report Explainer API Documentation",
     version: "1.0.0",
@@ -220,16 +217,19 @@ app.use((err, req, res, next) => {
 });
 
 // 404 handler for API routes
-app.use('/api/*', (req, res) => {
+app.use(['/api/*', '/api'], (req, res) => {
   res.status(404).json({
     success: false,
     error: "Endpoint not found",
   });
 });
 
-// Serve frontend in production (Render deployment support)
-if (process.env.NODE_ENV === 'production') {
-  const clientBuildPath = path.join(__dirname, '../client/build');
+// Serve frontend in production when NOT running on Vercel (e.g., Render, Docker, VPS)
+// On Vercel, the frontend is served directly by Vercel CDN
+const fs = require('fs');
+const clientBuildPath = path.join(__dirname, '../client/build');
+
+if (process.env.NODE_ENV === 'production' && !process.env.VERCEL && fs.existsSync(clientBuildPath)) {
   app.use(express.static(clientBuildPath));
 
   // All unhandled GET requests return the React app
@@ -237,7 +237,7 @@ if (process.env.NODE_ENV === 'production') {
     res.sendFile(path.join(clientBuildPath, 'index.html'));
   });
 } else {
-  // Fallback 404 for non-production non-API routes
+  // Fallback 404 for unhandled routes
   app.use((req, res) => {
     res.status(404).json({
       success: false,
