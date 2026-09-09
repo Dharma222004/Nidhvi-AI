@@ -3,9 +3,11 @@ server/.env
 .env
 .env.local
 .env.*
+*.env
 dd
 !.env.example
 !server/.env.example
+!Nidhvi_API.env
 
 
 # Documentation artifacts (agent-generated logs)
