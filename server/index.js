@@ -38,6 +38,24 @@ console.log("Environment Check:", {
   nodeEnv: process.env.NODE_ENV,
 });
 
+// Global process safety
+process.on("unhandledRejection", (reason) => {
+  console.error("Unhandled Rejection:", reason);
+});
+process.on("uncaughtException", (err) => {
+  console.error("Uncaught Exception:", err);
+});
+
+// URL normalization for Vercel/proxies
+app.use((req, res, next) => {
+  if (req.url.startsWith("/server/index.js")) {
+    req.url = req.url.replace("/server/index.js", "") || "/";
+  } else if (req.url.startsWith("/server")) {
+    req.url = req.url.replace("/server", "") || "/";
+  }
+  next();
+});
+
 // Security middleware
 app.use(
   helmet({
@@ -111,6 +129,26 @@ app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
 // Static files for uploaded reports
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+// Direct, isolated languages endpoint (instant response, zero dependency)
+app.get(["/api/enhanced/languages", "/enhanced/languages", "/languages"], (req, res) => {
+  res.json({
+    success: true,
+    languages: [
+      { code: "en", name: "English", nativeName: "English" },
+      { code: "hi", name: "Hindi", nativeName: "हिन्दी" },
+      { code: "ta", name: "Tamil", nativeName: "தமிழ்" },
+      { code: "te", name: "Telugu", nativeName: "తెలుగు" },
+      { code: "bn", name: "Bengali", nativeName: "বাংলা" },
+      { code: "mr", name: "Marathi", nativeName: "मराठी" },
+      { code: "gu", name: "Gujarati", nativeName: "ગુજરાતી" },
+      { code: "kn", name: "Kannada", nativeName: "ಕನ್ನಡ" },
+      { code: "ml", name: "Malayalam", nativeName: "മലയാളം" },
+      { code: "pa", name: "Punjabi", nativeName: "ਪੰਜਾਬੀ" },
+      { code: "ur", name: "Urdu", nativeName: "اردو" }
+    ]
+  });
+});
 
 // API Routes - Dual mapped for /api/... and direct /... (essential for Vercel rewrites)
 app.use(["/api/analyze", "/analyze"], analyzeRoutes);
@@ -247,12 +285,9 @@ if (process.env.NODE_ENV === 'production' && !process.env.VERCEL && fs.existsSyn
 }
 
 // Start server
-// In Render/Heroku/StandardVPS, we need to call app.listen
-// Vercel handles this via serverless functions (module.exports = app)
-const isProduction = process.env.NODE_ENV === "production";
-const isVercel = !!process.env.VERCEL;
-
-if (!isVercel) {
+// Only start listening if this script is executed directly (node server/index.js or npm run dev)
+// When imported as a module by Vercel serverless functions or tests, NEVER call app.listen()
+if (require.main === module && !process.env.VERCEL && !process.env.AWS_LAMBDA_FUNCTION_NAME && !process.env.LAMBDA_TASK_ROOT) {
   app.listen(PORT, () => {
     console.log(`
   ╔═══════════════════════════════════════════════════════════╗
